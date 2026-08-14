@@ -4,6 +4,8 @@
 
 Issues and specs are tracked in GitHub Issues using the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
+For every pull request with a corresponding issue that it fully resolves, include `Closes #<issue-number>` in the PR body so GitHub links the issue and closes it automatically when the PR merges.
+
 ### Triage labels
 
 The tracker uses the five default triage labels. See `docs/agents/triage-labels.md`.
