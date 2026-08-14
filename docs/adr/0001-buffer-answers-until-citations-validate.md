@@ -1,0 +1,3 @@
+# Buffer Answers until Citations validate
+
+Cloudflare Workers AI JSON Mode does not support streaming, and its Citation identifiers are only available in the final structured result. Grounded Answering therefore buffers provider output and exposes an Answer only after every Citation has been validated and the Answer has been persisted atomically; provisional prose is never shown because it could contain unsupported claims. We rejected unstructured token streaming followed by Citation repair because a Guest could read unsupported output before validation, and rejected streaming an already validated result because it adds transport complexity without reducing model latency.

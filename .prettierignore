@@ -3,7 +3,7 @@
 coverage
 docs
 node_modules
-package-lock.json
+pnpm-lock.yaml
 ARCHITECTURE.md
 CONTEXT.md
 DEMO.md

@@ -27,7 +27,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
   const { data: notebooks, error } = await supabase
     .from("notebooks")
-    .select("id, owner_id, title, created_at, updated_at")
+    .select("id, owner_id, is_example, title, created_at, updated_at")
     .order("updated_at", { ascending: false });
   const params = await searchParams;
   const requestedNotebook = Array.isArray(params.notebook)

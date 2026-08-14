@@ -13,6 +13,7 @@ function notebook(id: string, updatedAt: string): Notebook {
   return {
     id,
     owner_id: "guest-a",
+    is_example: false,
     title: `Notebook ${id}`,
     created_at: updatedAt,
     updated_at: updatedAt,
@@ -57,5 +58,19 @@ describe("Notebook collection", () => {
 
     expect(sortNotebooks(input)).toEqual([newer, older]);
     expect(input).toEqual([older, newer]);
+  });
+
+  it("keeps the shared Example Notebook ahead of private Notebooks", () => {
+    const privateNotebook = notebook("private", "2026-08-14T10:00:00.000Z");
+    const example = {
+      ...notebook("example", "2026-08-13T10:00:00.000Z"),
+      owner_id: null,
+      is_example: true,
+    };
+
+    expect(sortNotebooks([privateNotebook, example])).toEqual([
+      example,
+      privateNotebook,
+    ]);
   });
 });
