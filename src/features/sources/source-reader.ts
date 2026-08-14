@@ -65,7 +65,9 @@ export async function readPdf(content: Uint8Array): Promise<LocatedPage[]> {
 
   try {
     const { extractText, getDocumentProxy } = await import("unpdf");
-    const document = await getDocumentProxy(content);
+    // PDF.js transfers its input buffer to its worker. Parse a copy so callers
+    // can still persist or otherwise reuse the original upload bytes.
+    const document = await getDocumentProxy(content.slice());
     if (document.numPages > PDF_PAGE_LIMIT) throw new Error("pdf_page_limit");
     const result = await extractText(document, { mergePages: false });
     const pages = (result.text as string[])

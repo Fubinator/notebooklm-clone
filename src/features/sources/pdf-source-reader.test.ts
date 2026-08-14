@@ -48,6 +48,18 @@ describe("PDF Source Reader", () => {
     ]);
   });
 
+  it("does not detach the caller's bytes while parsing", async () => {
+    mocks.getDocumentProxy.mockImplementationOnce(async (content: Uint8Array) => {
+      structuredClone(content.buffer, { transfer: [content.buffer] });
+      return { numPages: 2 };
+    });
+    const content = new TextEncoder().encode("%PDF-1.7 upload body");
+
+    await readPdf(content);
+
+    expect(content.byteLength).toBeGreaterThan(0);
+  });
+
   it("classifies encrypted, unreadable, empty, and over-length PDFs safely", async () => {
     mocks.getDocumentProxy.mockResolvedValueOnce({
       numPages: PDF_PAGE_LIMIT + 1,
