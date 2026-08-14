@@ -1,10 +1,11 @@
-import { createChatModel } from "@/features/answering/chat";
-import { ChatProviderRequestError } from "@/features/answering/cloudflare-chat";
+import { createAnswerModel } from "@/features/answering/answer-model";
+import { AnswerProviderRequestError } from "@/features/answering/cloudflare-answer-model";
 import { answerGroundedQuestion } from "@/features/answering/grounded-answering";
 import { createAnsweringPersistence } from "@/features/answering/persistence";
 import { retrieveEvidence } from "@/features/answering/retrieval";
 import { validateQuestion } from "@/features/conversations/model";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type QuestionRequest = {
   notebookId?: unknown;
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
 
   const correlationId = crypto.randomUUID();
   try {
+    const admin = createAdminClient();
     const result = await answerGroundedQuestion(
       {
         notebookId: body.notebookId,
@@ -55,10 +57,10 @@ export async function POST(request: Request) {
         correlationId,
       },
       {
-        persistence: createAnsweringPersistence(supabase),
+        persistence: createAnsweringPersistence(admin, user.id),
         retrieve: (notebookId, question) =>
-          retrieveEvidence(supabase, notebookId, question),
-        chatModel: createChatModel(),
+          retrieveEvidence(admin, user.id, notebookId, question),
+        answerModel: createAnswerModel(),
       },
     );
 
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
         notebookId: body.notebookId,
         outcome: "failed",
         category: safeErrorCategory(message),
-        ...(error instanceof ChatProviderRequestError
+        ...(error instanceof AnswerProviderRequestError
           ? {
               providerStatus: error.status,
               ...(error.providerCode === null

@@ -14,6 +14,7 @@ export const RETRIEVAL_DEFAULTS = {
 
 export async function retrieveEvidence(
   supabase: SupabaseClient<Database>,
+  guestId: string,
   notebookId: string,
   question: string,
 ): Promise<EvidencePassage[]> {
@@ -22,7 +23,8 @@ export async function retrieveEvidence(
     throw new Error("question_embedding_invalid");
   }
 
-  const { data, error } = await supabase.rpc("retrieve_passages", {
+  const { data, error } = await supabase.rpc("retrieve_grounded_passages", {
+    target_guest_id: guestId,
     target_notebook_id: notebookId,
     question_embedding: `[${embedding.join(",")}]`,
     match_count: readIntegerEnvironment(

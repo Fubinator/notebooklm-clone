@@ -11,12 +11,12 @@ import {
 } from "@/components/notebook-dialogs";
 import { NotebookHeader } from "@/components/notebook-header";
 import {
-  ConversationPane,
   type MobilePanel,
-  SourcesPane,
-  StudioPane,
   WorkspacePanelTabs,
 } from "@/components/workspace-panes";
+import { ConversationPane } from "@/components/conversation-pane";
+import { SourcesPane } from "@/components/sources-pane";
+import { StudioPane } from "@/components/studio-pane";
 import type { Citation } from "@/features/conversations/model";
 import { createConversationRepository } from "@/features/conversations/repository";
 import { useConversation } from "@/features/conversations/use-conversation";

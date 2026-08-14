@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { generateWithCloudflare } from "./cloudflare-chat";
-import type { ChatModelRequest } from "./model";
+import { generateWithCloudflare } from "./cloudflare-answer-model";
+import type { AnswerModelRequest } from "./model";
 
-const input: ChatModelRequest = {
+const input: AnswerModelRequest = {
   question: "What is trustworthy AI?",
   evidence: [
     {
@@ -20,7 +20,7 @@ const input: ChatModelRequest = {
   ],
 };
 
-describe("Cloudflare chat adapter", () => {
+describe("Cloudflare Answer-model adapter", () => {
   it("requests JSON output without exposing credentials in content", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -83,7 +83,7 @@ describe("Cloudflare chat adapter", () => {
     );
 
     await expect(failure).rejects.toMatchObject({
-      message: "chat_provider_request_failed",
+      message: "answer_provider_request_failed",
       status: 400,
       providerCode: 5007,
     });

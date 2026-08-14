@@ -10,7 +10,7 @@ export type EvidencePassage = {
   similarity: number;
 };
 
-export type ChatModelRequest = {
+export type AnswerModelRequest = {
   question: string;
   evidence: EvidencePassage[];
   repair?: {
@@ -19,10 +19,10 @@ export type ChatModelRequest = {
   };
 };
 
-export type ChatModel = {
+export type AnswerModel = {
   provider: string;
   model: string;
-  generate(request: ChatModelRequest): Promise<unknown>;
+  generate(request: AnswerModelRequest): Promise<unknown>;
 };
 
 export type ValidatedModelAnswer =

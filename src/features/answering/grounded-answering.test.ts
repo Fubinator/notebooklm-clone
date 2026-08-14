@@ -36,7 +36,7 @@ const input = {
 function createDependencies(): GroundedAnsweringDependencies {
   return {
     retrieve: vi.fn().mockResolvedValue(evidence),
-    chatModel: {
+    answerModel: {
       provider: "test-provider",
       model: "test-model",
       generate: vi.fn().mockResolvedValue({
@@ -82,7 +82,7 @@ describe("Grounded Answering", () => {
   });
 
   it("repairs invalid Citation output once", async () => {
-    vi.mocked(dependencies.chatModel.generate)
+    vi.mocked(dependencies.answerModel.generate)
       .mockResolvedValueOnce({
         answer_kind: "grounded",
         answer: "Unverified",
@@ -96,8 +96,8 @@ describe("Grounded Answering", () => {
 
     await answerGroundedQuestion(input, dependencies);
 
-    expect(dependencies.chatModel.generate).toHaveBeenCalledTimes(2);
-    expect(dependencies.chatModel.generate).toHaveBeenLastCalledWith(
+    expect(dependencies.answerModel.generate).toHaveBeenCalledTimes(2);
+    expect(dependencies.answerModel.generate).toHaveBeenLastCalledWith(
       expect.objectContaining({
         repair: expect.objectContaining({
           reason: "A Citation ID was outside the retrieved evidence set.",
@@ -110,7 +110,7 @@ describe("Grounded Answering", () => {
   });
 
   it("becomes a safe failure when the repair is still invalid", async () => {
-    vi.mocked(dependencies.chatModel.generate).mockResolvedValue({
+    vi.mocked(dependencies.answerModel.generate).mockResolvedValue({
       answer_kind: "grounded",
       answer: "Unverified",
       citation_ids: ["invented-passage"],
@@ -120,7 +120,7 @@ describe("Grounded Answering", () => {
       status: "failed",
       kind: "safe_failure",
     });
-    expect(dependencies.chatModel.generate).toHaveBeenCalledTimes(2);
+    expect(dependencies.answerModel.generate).toHaveBeenCalledTimes(2);
     expect(dependencies.persistence.fail).toHaveBeenCalledWith("answer-1");
     expect(dependencies.persistence.complete).not.toHaveBeenCalled();
   });
@@ -130,7 +130,7 @@ describe("Grounded Answering", () => {
 
     await answerGroundedQuestion(input, dependencies);
 
-    expect(dependencies.chatModel.generate).not.toHaveBeenCalled();
+    expect(dependencies.answerModel.generate).not.toHaveBeenCalled();
     expect(dependencies.persistence.complete).toHaveBeenCalledWith({
       answerId: "answer-1",
       content: INSUFFICIENT_EVIDENCE_ANSWER,
@@ -142,7 +142,7 @@ describe("Grounded Answering", () => {
   });
 
   it("persists the model's insufficient-evidence decision without a Citation", async () => {
-    vi.mocked(dependencies.chatModel.generate).mockResolvedValue({
+    vi.mocked(dependencies.answerModel.generate).mockResolvedValue({
       answer_kind: "insufficient_evidence",
       answer: "",
       citation_ids: [],
@@ -152,7 +152,7 @@ describe("Grounded Answering", () => {
       status: "completed",
       kind: "insufficient_evidence",
     });
-    expect(dependencies.chatModel.generate).toHaveBeenCalledTimes(1);
+    expect(dependencies.answerModel.generate).toHaveBeenCalledTimes(1);
     expect(dependencies.persistence.complete).toHaveBeenCalledWith({
       answerId: "answer-1",
       content: INSUFFICIENT_EVIDENCE_ANSWER,
@@ -164,7 +164,7 @@ describe("Grounded Answering", () => {
   });
 
   it("marks interrupted provider work failed instead of completed", async () => {
-    vi.mocked(dependencies.chatModel.generate).mockRejectedValue(
+    vi.mocked(dependencies.answerModel.generate).mockRejectedValue(
       new Error("provider interrupted"),
     );
 

@@ -1,14 +1,14 @@
 import "server-only";
 
 import {
-  DEFAULT_CLOUDFLARE_CHAT_MODEL,
+  DEFAULT_CLOUDFLARE_ANSWER_MODEL,
   generateWithCloudflare,
-} from "./cloudflare-chat";
-import type { ChatModel } from "./model";
+} from "./cloudflare-answer-model";
+import type { AnswerModel } from "./model";
 
-export function createChatModel(): ChatModel {
+export function createAnswerModel(): AnswerModel {
   const model =
-    process.env.CLOUDFLARE_CHAT_MODEL || DEFAULT_CLOUDFLARE_CHAT_MODEL;
+    process.env.CLOUDFLARE_ANSWER_MODEL || DEFAULT_CLOUDFLARE_ANSWER_MODEL;
 
   return {
     provider: "cloudflare-workers-ai",
@@ -17,7 +17,7 @@ export function createChatModel(): ChatModel {
       const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
       const apiToken = process.env.CLOUDFLARE_API_TOKEN;
       if (!accountId || !apiToken) {
-        throw new Error("chat_provider_not_configured");
+        throw new Error("answer_provider_not_configured");
       }
 
       return generateWithCloudflare(input, { accountId, apiToken }, model);

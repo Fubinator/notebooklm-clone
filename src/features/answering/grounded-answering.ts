@@ -1,4 +1,8 @@
-import type { ChatModel, EvidencePassage, ValidatedModelAnswer } from "./model";
+import type {
+  AnswerModel,
+  EvidencePassage,
+  ValidatedModelAnswer,
+} from "./model";
 import { validateModelAnswer } from "./model";
 import type { AnsweringPersistence, PendingAnswer } from "./persistence";
 
@@ -7,7 +11,7 @@ export const INSUFFICIENT_EVIDENCE_ANSWER =
 
 export type GroundedAnsweringDependencies = {
   retrieve(notebookId: string, question: string): Promise<EvidencePassage[]>;
-  chatModel: ChatModel;
+  answerModel: AnswerModel;
   persistence: AnsweringPersistence;
 };
 
@@ -37,14 +41,14 @@ export async function answerGroundedQuestion(
       return { status: "completed", kind: "insufficient_evidence" };
     }
 
-    const firstOutput = await dependencies.chatModel.generate({
+    const firstOutput = await dependencies.answerModel.generate({
       question: input.question,
       evidence,
     });
     let validation = validateModelAnswer(firstOutput, evidence);
 
     if (!validation.ok) {
-      const repairedOutput = await dependencies.chatModel.generate({
+      const repairedOutput = await dependencies.answerModel.generate({
         question: input.question,
         evidence,
         repair: {
@@ -86,8 +90,8 @@ async function persistValidatedAnswer(
     answerId: pending.answerId,
     content: answer.answer,
     kind: "grounded",
-    provider: dependencies.chatModel.provider,
-    model: dependencies.chatModel.model,
+    provider: dependencies.answerModel.provider,
+    model: dependencies.answerModel.model,
     citationIds: answer.citationIds,
   });
 }

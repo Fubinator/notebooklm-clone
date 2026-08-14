@@ -67,14 +67,15 @@ The committed `supabase/config.toml` enables anonymous sign-ins locally. Copy th
 cp .env.example .env.local
 ```
 
-Set the browser-safe Supabase values and the server-only Cloudflare credentials:
+Set the browser-safe Supabase values and the server-only Supabase and Cloudflare credentials:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_local_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
 CLOUDFLARE_API_TOKEN=your_workers_ai_read_token
-CLOUDFLARE_CHAT_MODEL=@cf/meta/llama-3.1-8b-instruct-fast
+CLOUDFLARE_ANSWER_MODEL=@cf/meta/llama-3.1-8b-instruct-fast
 RETRIEVAL_MATCH_COUNT=5
 RETRIEVAL_MIN_SIMILARITY=0.42
 ```
@@ -87,12 +88,13 @@ For a hosted project:
 2. Link the CLI with `supabase link --project-ref <project-ref>`.
 3. Apply the migrations and Example seed with `supabase db push --include-seed` on the fresh preview project.
 4. Copy the Project URL and publishable key from the project’s **Connect** dialog into `.env.local`.
+5. Add the server-only service-role key from **Project Settings → API Keys** to the deployment environment.
 
-Do not add a Supabase service-role key. Ordinary reads and Notebook CRUD run as the authenticated Guest under RLS. Restrict the Cloudflare token to `Workers AI Read` on the selected account and keep both Cloudflare values server-only.
+Keep the Supabase service-role key server-only; Grounded Answering uses it after authenticating the Guest so its mutation functions are not callable from the browser. Ordinary reads and Notebook CRUD still run as the authenticated Guest under RLS. Restrict the Cloudflare token to `Workers AI Read` on the selected account and keep both Cloudflare values server-only.
 
 ### Model providers
 
-The configured embedding provider is Cloudflare Workers AI using `@cf/baai/bge-small-en-v1.5`, 384 dimensions, and `cls` pooling. The model, dimension, and pooling mode form one vector space and must change together. Grounded Answering uses Cloudflare Workers AI with the server-only `CLOUDFLARE_CHAT_MODEL` selection, defaulting to `@cf/meta/llama-3.1-8b-instruct-fast`.
+The configured embedding provider is Cloudflare Workers AI using `@cf/baai/bge-small-en-v1.5`, 384 dimensions, and `cls` pooling. The model, dimension, and pooling mode form one vector space and must change together. Grounded Answering uses Cloudflare Workers AI with the server-only `CLOUDFLARE_ANSWER_MODEL` selection, defaulting to `@cf/meta/llama-3.1-8b-instruct-fast`.
 
 The committed Example seed already contains its vectors, so Cloudflare is not called while browsing the Example Notebook. To deliberately regenerate those vectors after changing the fixture text or embedding configuration, run:
 

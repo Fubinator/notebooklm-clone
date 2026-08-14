@@ -246,6 +246,19 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      begin_grounded_question: {
+        Args: {
+          target_guest_id: string;
+          target_notebook_id: string;
+          question_content: string;
+          request_correlation_id: string;
+        };
+        Returns: {
+          conversation_id: string;
+          question_id: string;
+          answer_id: string;
+        }[];
+      };
       begin_question: {
         Args: {
           target_notebook_id: string;
@@ -269,9 +282,53 @@ export type Database = {
         };
         Returns: undefined;
       };
+      complete_grounded_answer: {
+        Args: {
+          target_guest_id: string;
+          target_answer_id: string;
+          answer_content: string;
+          completion_kind: "grounded" | "insufficient_evidence";
+          completion_provider: string | null;
+          completion_model: string | null;
+          cited_passage_ids?: string[];
+        };
+        Returns: undefined;
+      };
       fail_answer: {
         Args: { target_answer_id: string };
         Returns: undefined;
+      };
+      fail_grounded_answer: {
+        Args: { target_guest_id: string; target_answer_id: string };
+        Returns: undefined;
+      };
+      record_grounded_evidence: {
+        Args: {
+          target_guest_id: string;
+          target_question_id: string;
+          evidence_ids: string[];
+        };
+        Returns: undefined;
+      };
+      retrieve_grounded_passages: {
+        Args: {
+          target_guest_id: string;
+          target_notebook_id: string;
+          question_embedding: string;
+          match_count?: number;
+          minimum_similarity?: number;
+        };
+        Returns: {
+          passage_id: string;
+          source_id: string;
+          source_title: string;
+          source_kind: "pdf" | "pasted_text";
+          content: string;
+          page_number: number | null;
+          paragraph_start: number | null;
+          paragraph_end: number | null;
+          similarity: number;
+        }[];
       };
       retrieve_passages: {
         Args: {

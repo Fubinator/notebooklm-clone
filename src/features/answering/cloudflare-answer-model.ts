@@ -1,7 +1,7 @@
 import { buildGroundedMessages } from "./prompt";
-import type { ChatModelRequest } from "./model";
+import type { AnswerModelRequest } from "./model";
 
-export const DEFAULT_CLOUDFLARE_CHAT_MODEL =
+export const DEFAULT_CLOUDFLARE_ANSWER_MODEL =
   "@cf/meta/llama-3.1-8b-instruct-fast";
 
 export type CloudflareChatCredentials = {
@@ -15,22 +15,22 @@ type CloudflareChatResponse = {
   errors?: Array<{ code?: unknown }>;
 };
 
-export class ChatProviderRequestError extends Error {
+export class AnswerProviderRequestError extends Error {
   readonly status: number;
   readonly providerCode: number | null;
 
   constructor(status: number, providerCode: number | null) {
-    super("chat_provider_request_failed");
-    this.name = "ChatProviderRequestError";
+    super("answer_provider_request_failed");
+    this.name = "AnswerProviderRequestError";
     this.status = status;
     this.providerCode = providerCode;
   }
 }
 
 export async function generateWithCloudflare(
-  input: ChatModelRequest,
+  input: AnswerModelRequest,
   credentials: CloudflareChatCredentials,
-  model = DEFAULT_CLOUDFLARE_CHAT_MODEL,
+  model = DEFAULT_CLOUDFLARE_ANSWER_MODEL,
   request: typeof fetch = fetch,
 ) {
   const response = await request(
@@ -52,7 +52,7 @@ export async function generateWithCloudflare(
   );
 
   if (!response.ok) {
-    throw new ChatProviderRequestError(
+    throw new AnswerProviderRequestError(
       response.status,
       await readProviderErrorCode(response),
     );
@@ -60,7 +60,7 @@ export async function generateWithCloudflare(
 
   const payload = (await response.json()) as CloudflareChatResponse;
   if (!payload.success || payload.result?.response === undefined) {
-    throw new Error("chat_provider_invalid_response");
+    throw new Error("answer_provider_invalid_response");
   }
 
   return payload.result.response;

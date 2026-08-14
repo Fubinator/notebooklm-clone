@@ -1,4 +1,4 @@
-import type { ChatModelRequest, EvidencePassage } from "./model";
+import type { AnswerModelRequest, EvidencePassage } from "./model";
 
 export type ProviderMessage = {
   role: "system" | "user" | "assistant";
@@ -19,7 +19,7 @@ export function buildGroundedMessages({
   question,
   evidence,
   repair,
-}: ChatModelRequest): ProviderMessage[] {
+}: AnswerModelRequest): ProviderMessage[] {
   const messages: ProviderMessage[] = [
     { role: "system", content: GROUNDING_INSTRUCTIONS },
     { role: "user", content: `QUESTION:\n${question}` },

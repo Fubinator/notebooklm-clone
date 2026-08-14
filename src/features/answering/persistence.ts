@@ -30,10 +30,12 @@ export type AnsweringPersistence = {
 
 export function createAnsweringPersistence(
   supabase: SupabaseClient<Database>,
+  guestId: string,
 ): AnsweringPersistence {
   return {
     async begin({ notebookId, question, correlationId }) {
-      const { data, error } = await supabase.rpc("begin_question", {
+      const { data, error } = await supabase.rpc("begin_grounded_question", {
+        target_guest_id: guestId,
         target_notebook_id: notebookId,
         question_content: question,
         request_correlation_id: correlationId,
@@ -50,7 +52,8 @@ export function createAnsweringPersistence(
     },
 
     async recordEvidence(questionId, passageIds) {
-      const { error } = await supabase.rpc("set_question_evidence", {
+      const { error } = await supabase.rpc("record_grounded_evidence", {
+        target_guest_id: guestId,
         target_question_id: questionId,
         evidence_ids: passageIds,
       });
@@ -58,7 +61,8 @@ export function createAnsweringPersistence(
     },
 
     async complete({ answerId, content, kind, provider, model, citationIds }) {
-      const { error } = await supabase.rpc("complete_answer", {
+      const { error } = await supabase.rpc("complete_grounded_answer", {
+        target_guest_id: guestId,
         target_answer_id: answerId,
         answer_content: content,
         completion_kind: kind,
@@ -70,7 +74,8 @@ export function createAnsweringPersistence(
     },
 
     async fail(answerId) {
-      const { error } = await supabase.rpc("fail_answer", {
+      const { error } = await supabase.rpc("fail_grounded_answer", {
+        target_guest_id: guestId,
         target_answer_id: answerId,
       });
       if (error) throw error;

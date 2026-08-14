@@ -110,7 +110,7 @@ The design avoids generic pass-through wrappers around Supabase. Modules are int
 
 ### Grounded Answering
 
-**Interface:** Given an authorized Conversation and Question, produce streamed Answer events and a final validated result.
+**Interface:** Given an authorized Conversation and Question, produce one final validated Answer result.
 
 **Depth:** Owns quota checks, Question persistence, Retrieval, prompt construction, source-instruction isolation, model invocation, Citation parsing and validation, completion persistence, and failure cleanup.
 
@@ -118,7 +118,7 @@ The design avoids generic pass-through wrappers around Supabase. Modules are int
 
 Two small deployment-time interfaces isolate real variation:
 
-- An Answer-model adapter streams text and structured Citation identifiers.
+- An Answer-model adapter returns buffered text and structured Citation identifiers.
 - An embedding-model adapter maps text to a fixed-dimension vector.
 
 Only one configured adapter for each interface ships in the committed deployment. There is no runtime provider selector or multi-provider product surface.
@@ -159,7 +159,7 @@ This is request-driven orchestration, not a durable background queue. Persisted 
 4. Ask Retrieval for notebook-scoped evidence from `ready` Sources only.
 5. If evidence is inadequate, persist an insufficient-evidence Answer without calling on general model knowledge.
 6. Give the model only the retrieved Passage text, stable Passage identifiers, and instructions that Source content is untrusted data.
-7. Stream provisional text when supported.
+7. Buffer structured provider output so provisional claims never reach the Guest before Citation validation (see [ADR 0001](./docs/adr/0001-buffer-answers-until-citations-validate.md)).
 8. Parse claimed Passage identifiers and validate that every one belongs to the retrieved evidence set.
 9. Persist the completed Answer and Citations in one transaction. Invalid Citation output is repaired once or returned as a safe failure; it is never silently accepted.
 10. Increment usage only for a successfully completed model Answer.
