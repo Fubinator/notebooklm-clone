@@ -286,7 +286,7 @@ select throws_ok(
 
 select is(
   (
-    select status
+    select answers.status
     from public.messages answers
     join public.messages questions on questions.id = answers.reply_to_message_id
     where questions.content = 'Can a model invent a Citation?'
@@ -314,7 +314,7 @@ select lives_ok(
 
 select is(
   (
-    select status
+    select answers.status
     from public.messages answers
     join public.messages questions on questions.id = answers.reply_to_message_id
     where questions.content = 'Can a model invent a Citation?'
