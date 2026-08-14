@@ -54,7 +54,7 @@ export function GuestGate() {
         </h1>
         <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
           {error ??
-            "Creating a private Guest workspace. No account or personal details needed."}
+            "Creating a private Guest workspace. No personal details needed."}
         </p>
         {error ? (
           <Button className="mt-6" onClick={() => window.location.reload()}>
