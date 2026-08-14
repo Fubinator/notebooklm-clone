@@ -2,6 +2,7 @@ import { CLOUDFLARE_EMBEDDING } from "@/features/sources/cloudflare-embedding";
 import { validatePastedText } from "@/features/sources/source-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/validation";
 
 type CreateSourceRequest = {
   notebookId?: unknown;
@@ -103,13 +104,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   return Response.json({ source: data }, { status: 201 });
-}
-
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  );
 }

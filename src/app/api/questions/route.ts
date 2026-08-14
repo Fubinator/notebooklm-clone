@@ -6,6 +6,7 @@ import { retrieveEvidence } from "@/features/answering/retrieval";
 import { validateQuestion } from "@/features/conversations/model";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isUuid } from "@/lib/validation";
 
 type QuestionRequest = {
   notebookId?: unknown;
@@ -105,15 +106,6 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-}
-
-function isUuid(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  );
 }
 
 function safeErrorCategory(message: string) {

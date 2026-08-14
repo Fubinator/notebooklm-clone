@@ -127,7 +127,7 @@ export function createSourceIngestionPersistence(
           correlation_id: correlationId,
         })
         .eq("id", sourceId)
-        .eq("processing_stage", retryStage)
+        .eq("processing_stage", current.processingStage)
         .select("id, content, processing_stage, retry_stage, attempt_count")
         .maybeSingle();
       if (error) throw error;

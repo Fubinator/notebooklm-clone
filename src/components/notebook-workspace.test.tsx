@@ -297,12 +297,39 @@ describe("Notebook workspace", () => {
   });
 
   it("restores a private grounded Answer and opens its exact Citation", async () => {
-    mocks.sourceList.mockResolvedValue([exampleSource]);
-    mocks.conversationList.mockResolvedValue(groundedMessages);
+    const pastedSource: ReadableSource = {
+      ...exampleSource,
+      notebook_id: first.id,
+      kind: "pasted_text",
+      title: "Private interview notes",
+      original_url: null,
+      license_url: "",
+      character_count: exampleSource.content.length,
+      passages: [
+        {
+          ...exampleSource.passages[0]!,
+          page_number: null,
+          paragraph_start: 2,
+          paragraph_end: 2,
+        },
+      ],
+    };
+    const pastedMessages = groundedMessages.map((message) => ({
+      ...message,
+      citations: message.citations.map((citation) => ({
+        ...citation,
+        source_title: pastedSource.title,
+        page_number: null,
+        paragraph_start: 2,
+        paragraph_end: 2,
+      })),
+    }));
+    mocks.sourceList.mockResolvedValue([pastedSource]);
+    mocks.conversationList.mockResolvedValue(pastedMessages);
     render(
       <NotebookWorkspace
         guestId={first.owner_id!}
-        initialNotebooks={[example]}
+        initialNotebooks={[first]}
       />,
     );
 
@@ -314,10 +341,10 @@ describe("Notebook workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Citation 1" }));
 
     expect(screen.getByLabelText("Citation 1 inspector")).toHaveTextContent(
-      exampleSource.title,
+      pastedSource.title,
     );
     expect(screen.getByLabelText("Citation 1 inspector")).toHaveTextContent(
-      "PDF page 12",
+      "Paragraph 2",
     );
     expect(screen.getByLabelText("Citation 1 inspector")).toHaveTextContent(
       exampleSource.passages[0]!.content,

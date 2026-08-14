@@ -63,11 +63,20 @@ export async function advanceSource(
   }
 
   if (source.processingStage === "uploaded") {
-    return dependencies.persistence.transition(
-      sourceId,
-      "uploaded",
-      "extracting",
-    );
+    try {
+      return await dependencies.persistence.transition(
+        sourceId,
+        "uploaded",
+        "extracting",
+      );
+    } catch (error) {
+      return dependencies.persistence.markFailed(
+        sourceId,
+        "extracting",
+        safeIngestionCategory(error),
+        correlationId,
+      );
+    }
   }
 
   const retryStage = source.processingStage as RetryStage;

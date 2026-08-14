@@ -42,15 +42,6 @@ security definer
 set search_path = ''
 as $$
 begin
-  if (select auth.role()) <> 'service_role' and not exists (
-    select 1 from public.notebooks
-    where notebooks.id = new.notebook_id
-      and notebooks.owner_id = (select auth.uid())
-      and not notebooks.is_example
-  ) then
-    raise insufficient_privilege using message = 'notebook_not_authorized';
-  end if;
-
   if (
     select count(*) >= 5 from public.sources
     where sources.notebook_id = new.notebook_id

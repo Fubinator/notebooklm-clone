@@ -68,21 +68,44 @@ function persistence(current: IngestionSource) {
         }),
     ),
   };
-  return { mock, passages };
+  return {
+    mock,
+    passages,
+    setSource(next: IngestionSource) {
+      current = next;
+    },
+    getSource() {
+      return current;
+    },
+  };
 }
 
 describe("Source Ingestion", () => {
   it("advances one persisted Processing Stage per request", async () => {
     const state = persistence(source("uploaded"));
-    await advanceSource("source", "correlation", {
-      persistence: state.mock,
-      embed: vi.fn(),
-    });
+    const embed = vi.fn(async (texts: string[]) =>
+      texts.map(() => Array(384).fill(0.1)),
+    );
+    for (let request = 0; request < 4; request += 1) {
+      await advanceSource("source", "correlation", {
+        persistence: state.mock,
+        embed,
+      });
+    }
     expect(state.mock.transition).toHaveBeenCalledWith(
       "source",
       "uploaded",
       "extracting",
     );
+    expect(state.getSource().processingStage).toBe("ready");
+    expect(state.passages).toEqual([
+      expect.objectContaining({
+        ordinal: 0,
+        paragraphStart: 1,
+        paragraphEnd: 2,
+        embedding: expect.any(String),
+      }),
+    ]);
   });
 
   it("repeating chunking replaces stable ordinals instead of duplicating Passages", async () => {
@@ -92,14 +115,18 @@ describe("Source Ingestion", () => {
       embed: vi.fn(),
     });
     const first = [...state.passages];
-    await state.mock.replacePassages("source", first);
+    state.setSource(source("chunking"));
+    await advanceSource("source", "correlation", {
+      persistence: state.mock,
+      embed: vi.fn(),
+    });
     expect(state.passages).toHaveLength(first.length);
     expect(state.passages.map(({ ordinal }) => ordinal)).toEqual(
       first.map(({ ordinal }) => ordinal),
     );
   });
 
-  it("persists a safe retry stage when embedding fails", async () => {
+  it("persists safe failure metadata and retries through the confirmed interface", async () => {
     const state = persistence(source("embedding"));
     await state.mock.replacePassages("source", [
       { ordinal: 0, content: "Evidence", paragraphStart: 1, paragraphEnd: 1 },
@@ -121,6 +148,49 @@ describe("Source Ingestion", () => {
       "source",
       "embedding",
       "embedding_provider_request_failed",
+      "correlation",
+    );
+
+    await advanceSource("source", "retry-correlation", {
+      persistence: state.mock,
+      embed: vi.fn(),
+    });
+    const embed = vi.fn(async () => [Array(384).fill(0.2)]);
+    const ready = await advanceSource("source", "retry-correlation", {
+      persistence: state.mock,
+      embed,
+    });
+    expect(ready.processingStage).toBe("ready");
+
+    state.setSource(source("embedding"));
+    await advanceSource("source", "repeated-correlation", {
+      persistence: state.mock,
+      embed,
+    });
+    expect(state.passages).toHaveLength(1);
+    expect(state.passages[0]!.embedding).toBe(
+      `[${Array(384).fill(0.2).join(",")}]`,
+    );
+  });
+
+  it("stores failure metadata when the uploaded transition fails", async () => {
+    const state = persistence(source("uploaded"));
+    vi.mocked(state.mock.transition).mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+    const result = await advanceSource("source", "correlation", {
+      persistence: state.mock,
+      embed: vi.fn(),
+    });
+    expect(result).toMatchObject({
+      processingStage: "failed",
+      retryStage: "extracting",
+      attemptCount: 1,
+    });
+    expect(state.mock.markFailed).toHaveBeenCalledWith(
+      "source",
+      "extracting",
+      "processing_failed",
       "correlation",
     );
   });
