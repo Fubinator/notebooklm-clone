@@ -28,7 +28,7 @@ export type Database = {
           notebook_id: string;
           owner_id: string;
           origin_answer_id: string;
-          origin_question: string;
+          origin_question?: string;
           content: string;
           created_at?: string;
           updated_at?: string;

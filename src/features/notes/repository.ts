@@ -2,20 +2,20 @@ import { createClient } from "@/lib/supabase/client";
 
 import type { Note } from "./model";
 
+export type SaveAnswerAsNote = {
+  notebookId: string;
+  answerId: string;
+  content: string;
+};
+
 export type NoteRepository = {
   list(notebookId: string): Promise<Note[]>;
-  create(input: {
-    notebookId: string;
-    ownerId: string;
-    answerId: string;
-    question: string;
-    content: string;
-  }): Promise<Note>;
+  saveAnswer(input: SaveAnswerAsNote): Promise<Note>;
   update(id: string, content: string): Promise<Note>;
   remove(id: string): Promise<void>;
 };
 
-export function createNoteRepository(): NoteRepository {
+export function createNoteRepository(ownerId: string): NoteRepository {
   const supabase = createClient();
   return {
     async list(notebookId) {
@@ -27,14 +27,13 @@ export function createNoteRepository(): NoteRepository {
       if (error) throw error;
       return data;
     },
-    async create({ notebookId, ownerId, answerId, question, content }) {
+    async saveAnswer({ notebookId, answerId, content }) {
       const { data, error } = await supabase
         .from("notes")
         .insert({
           notebook_id: notebookId,
           owner_id: ownerId,
           origin_answer_id: answerId,
-          origin_question: question,
           content,
         })
         .select()

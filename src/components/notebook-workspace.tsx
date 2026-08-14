@@ -2,7 +2,14 @@
 
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   CreateNotebookDialog,
@@ -16,7 +23,7 @@ import {
 } from "@/components/workspace-panes";
 import { ConversationPane } from "@/components/conversation-pane";
 import { SourcesPane } from "@/components/sources-pane";
-import { StudioPane } from "@/components/studio-pane";
+import { StudioPane, type StudioView } from "@/components/studio-pane";
 import type { Citation } from "@/features/conversations/model";
 import { createConversationRepository } from "@/features/conversations/repository";
 import { useConversation } from "@/features/conversations/use-conversation";
@@ -48,7 +55,10 @@ export function NotebookWorkspace({
     () => createConversationRepository(),
     [],
   );
-  const noteRepository = useMemo(() => createNoteRepository(), []);
+  const noteRepository = useMemo(
+    () => createNoteRepository(guestId),
+    [guestId],
+  );
   const navigate = useCallback(
     (notebookId?: string) =>
       router.replace(notebookId ? `/?notebook=${notebookId}` : "/", {
@@ -73,13 +83,12 @@ export function NotebookWorkspace({
   });
   const notes = useNotes({
     notebookId: workspace.activeNotebook?.id,
-    ownerId: guestId,
     repository: noteRepository,
   });
 
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversation");
   const [selectedCitation, setSelectedCitation] = useState<Citation>();
-  const [studioView, setStudioView] = useState<"citation" | "notes">("notes");
+  const [studioView, setStudioView] = useState<StudioView>("notes");
   const [selectedNoteId, setSelectedNoteId] = useState<string>();
   const [savingAnswerId, setSavingAnswerId] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
@@ -88,6 +97,47 @@ export function NotebookWorkspace({
   const [title, setTitle] = useState("");
   const [renameTitle, setRenameTitle] = useState("");
   const [formError, setFormError] = useState<string>();
+  const previousMobilePanel = useRef<MobilePanel>("conversation");
+
+  useEffect(() => {
+    const previous = previousMobilePanel.current;
+    previousMobilePanel.current = mobilePanel;
+    if (mobilePanel === "conversation" && previous !== "conversation") {
+      document
+        .querySelector<HTMLElement>(
+          `[aria-controls="${previous === "sources" ? "sources" : "studio"}-panel"]`,
+        )
+        ?.focus();
+    }
+    if (mobilePanel === "conversation") return;
+    function handleDrawerKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobilePanel("conversation");
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const drawer = document.getElementById(
+        mobilePanel === "sources" ? "sources-panel" : "studio-panel",
+      );
+      const focusable = Array.from(
+        drawer?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+        ) ?? [],
+      );
+      if (!focusable.length) return;
+      const first = focusable[0]!;
+      const last = focusable.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleDrawerKey);
+    return () => document.removeEventListener("keydown", handleDrawerKey);
+  }, [mobilePanel]);
 
   function openCreate() {
     setFormError(undefined);
@@ -165,7 +215,14 @@ export function NotebookWorkspace({
 
       <WorkspacePanelTabs active={mobilePanel} onChange={setMobilePanel} />
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[286px_minmax(360px,1fr)_318px]">
+      <div className="relative grid min-h-0 flex-1 lg:grid-cols-[286px_minmax(360px,1fr)_318px]">
+        {mobilePanel !== "conversation" ? (
+          <button
+            className="absolute inset-0 z-10 bg-[var(--ink)]/25 lg:hidden"
+            aria-label={`Close ${mobilePanel === "sources" ? "Sources" : "Context"} drawer`}
+            onClick={() => setMobilePanel("conversation")}
+          />
+        ) : null}
         <SourcesPane
           visible={mobilePanel === "sources"}
           notebook={workspace.activeNotebook}
@@ -177,9 +234,10 @@ export function NotebookWorkspace({
             setMobilePanel("conversation");
           }}
           onRetry={() => void sourceLibrary.retry()}
+          onClose={() => setMobilePanel("conversation")}
         />
         <ConversationPane
-          visible={mobilePanel === "conversation"}
+          visible
           notebook={workspace.activeNotebook}
           source={sourceLibrary.selectedSource}
           messages={conversation.messages}
@@ -205,18 +263,20 @@ export function NotebookWorkspace({
             new Set(notes.notes.map(({ origin_answer_id }) => origin_answer_id))
           }
           savingAnswerId={savingAnswerId}
-          onSaveAnswer={(answer, question) => {
+          onSaveAnswer={(answer) => {
             setSavingAnswerId(answer.id);
-            void notes
-              .create(answer.id, question, answer.content)
-              .then((note) => {
-                if (note) {
-                  setSelectedNoteId(note.id);
-                  setStudioView("notes");
-                  setMobilePanel("studio");
-                }
-                setSavingAnswerId(undefined);
-              });
+            void notes.create(answer.id, answer.content).then((note) => {
+              if (note) {
+                setSelectedNoteId(note.id);
+                setStudioView("notes");
+                setMobilePanel("studio");
+              }
+              if (!note) {
+                setStudioView("notes");
+                setMobilePanel("studio");
+              }
+              setSavingAnswerId(undefined);
+            });
           }}
         />
         <StudioPane
@@ -234,6 +294,9 @@ export function NotebookWorkspace({
           onUpdateNote={notes.update}
           onDeleteNote={notes.remove}
           onRetryNotes={() => void notes.retry()}
+          canRetrySave={notes.canRetrySave}
+          onRetrySave={() => void notes.retrySave()}
+          onClose={() => setMobilePanel("conversation")}
         />
       </div>
 
@@ -281,16 +344,16 @@ export function NotebookWorkspace({
       />
 
       <div className="sr-only" role="status" aria-live="polite">
-        {workspace.notice ?? initialError}
+        {notes.notice ?? workspace.notice ?? initialError}
       </div>
-      {workspace.notice || initialError ? (
+      {notes.notice || workspace.notice || initialError ? (
         <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-xl bg-[var(--ink)] px-4 py-3 text-sm font-medium text-white shadow-xl">
-          {workspace.notice ? (
+          {notes.notice || workspace.notice ? (
             <Check className="size-4" />
           ) : (
             <X className="size-4" />
           )}
-          {workspace.notice ?? initialError}
+          {notes.notice ?? workspace.notice ?? initialError}
         </div>
       ) : null}
     </main>

@@ -1,12 +1,15 @@
 "use client";
 
-import { BookOpen, Quote, Sparkles, StickyNote } from "lucide-react";
+import { BookOpen, Quote, Sparkles, StickyNote, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { CitationInspector } from "@/components/citation-inspector";
 import { NotesPanel } from "@/components/notes-panel";
 import type { Citation } from "@/features/conversations/model";
 import type { Note } from "@/features/notes/model";
 import type { NotesLoadState } from "@/features/notes/use-notes";
 import { cn } from "@/lib/utils";
+
+export type StudioView = "citation" | "notes";
 
 export function StudioPane({
   visible,
@@ -23,12 +26,15 @@ export function StudioPane({
   onUpdateNote,
   onDeleteNote,
   onRetryNotes,
+  canRetrySave,
+  onRetrySave,
+  onClose,
 }: {
   visible: boolean;
   citation?: Citation;
   onCloseCitation: () => void;
-  view: "citation" | "notes";
-  onViewChange: (view: "citation" | "notes") => void;
+  view: StudioView;
+  onViewChange: (view: StudioView) => void;
   notes: Note[];
   notesStatus: NotesLoadState;
   selectedNoteId?: string;
@@ -38,23 +44,45 @@ export function StudioPane({
   onUpdateNote: (id: string, content: string) => Promise<boolean>;
   onDeleteNote: (id: string) => Promise<boolean>;
   onRetryNotes: () => void;
+  canRetrySave: boolean;
+  onRetrySave: () => void;
+  onClose: () => void;
 }) {
+  const drawerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (visible) drawerRef.current?.focus();
+  }, [visible]);
+
   return (
     <aside
+      ref={drawerRef}
+      tabIndex={visible ? -1 : undefined}
+      role={visible ? "dialog" : undefined}
+      aria-modal={visible ? true : undefined}
       className={cn(
-        "min-h-0 flex-col border-l border-[var(--line)] bg-[#f7f3e9] lg:flex",
+        "absolute inset-y-0 right-0 z-20 min-h-0 w-[min(88vw,380px)] flex-col border-l border-[var(--line)] bg-[#f7f3e9] shadow-2xl outline-none lg:static lg:z-auto lg:flex lg:w-auto lg:shadow-none",
         visible ? "flex" : "hidden",
       )}
-      aria-label="Studio"
+      aria-label={visible ? "Context drawer" : "Studio"}
+      id="studio-panel"
     >
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--line)] px-5">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-[var(--accent-strong)]" />
           <h2 className="text-sm font-semibold">Studio</h2>
         </div>
-        <span className="text-[11px] font-medium text-[var(--muted-light)]">
-          Context
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium text-[var(--muted-light)]">
+            Context
+          </span>
+          <button
+            className="rounded-lg p-1.5 text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none lg:hidden"
+            aria-label="Close Context drawer"
+            onClick={onClose}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
       <div
         className="flex border-b border-[var(--line)] p-2"
@@ -88,6 +116,8 @@ export function StudioPane({
             onUpdate={onUpdateNote}
             onDelete={onDeleteNote}
             onRetry={onRetryNotes}
+            canRetrySave={canRetrySave}
+            onRetrySave={onRetrySave}
           />
         ) : citation ? (
           <CitationInspector citation={citation} onClose={onCloseCitation} />

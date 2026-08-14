@@ -44,7 +44,7 @@ export function ConversationView({
   onCitation: (citation: Citation) => void;
   savedAnswerIds: Set<string>;
   savingAnswerId?: string;
-  onSaveAnswer: (answer: ConversationMessage, question: string) => void;
+  onSaveAnswer: (answer: ConversationMessage) => void;
 }) {
   const [question, setQuestion] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -89,10 +89,7 @@ export function ConversationView({
                 saved={savedAnswerIds.has(message.id)}
                 saving={savingAnswerId === message.id}
                 onSave={() => {
-                  const question = messages.find(
-                    ({ id }) => id === message.reply_to_message_id,
-                  )?.content;
-                  if (question) onSaveAnswer(message, question);
+                  onSaveAnswer(message);
                 }}
               />
             ))}
@@ -123,7 +120,7 @@ export function ConversationView({
         className="shrink-0 border-t border-[var(--line)] p-4 sm:p-5"
         onSubmit={(event) => void submit(event)}
       >
-        <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--line-strong)] bg-white p-2 shadow-[0_8px_28px_rgba(24,38,31,.06)]">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--line-strong)] bg-white p-2 shadow-[0_8px_28px_rgba(24,38,31,.06)] focus-within:ring-2 focus-within:ring-[var(--ink)] focus-within:ring-offset-2">
           <div className="flex items-center gap-2">
             <Search className="ml-2 size-4 shrink-0 text-[var(--muted-light)]" />
             <input
@@ -140,7 +137,7 @@ export function ConversationView({
             />
             <button
               disabled={!canAsk || Boolean(pendingQuestion) || !question.trim()}
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--accent-strong)] text-white disabled:bg-[var(--line)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--accent-strong)] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 disabled:bg-[var(--line)] disabled:text-[var(--muted)]"
               aria-label="Submit Question"
             >
               <ArrowUp className="size-4" />
@@ -214,7 +211,7 @@ function MessageCard({
           {message.citations.map((citation) => (
             <button
               key={citation.id}
-              className="rounded-full border border-[var(--line-strong)] bg-[var(--sage)] px-3 py-1.5 text-[11px] font-bold text-[var(--ink-soft)] transition-colors hover:border-[var(--accent-strong)]"
+              className="rounded-full border border-[var(--line-strong)] bg-[var(--sage)] px-3 py-1.5 text-[11px] font-bold text-[var(--ink-soft)] transition-colors outline-none hover:border-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2"
               onClick={() => onCitation(citation)}
             >
               Citation {citation.display_order}
@@ -298,7 +295,7 @@ function ConversationWelcome({
             <button
               key={suggestion}
               disabled={!canAsk}
-              className="rounded-xl border border-[var(--line)] bg-white px-3 py-3 text-left text-xs leading-5 font-medium text-[var(--muted)] transition-colors hover:border-[var(--accent-strong)] disabled:opacity-50"
+              className="rounded-xl border border-[var(--line)] bg-white px-3 py-3 text-left text-xs leading-5 font-medium text-[var(--muted)] transition-colors outline-none hover:border-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 disabled:opacity-50"
               onClick={() => onSuggestion(suggestion)}
             >
               {suggestion}

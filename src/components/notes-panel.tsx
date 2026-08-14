@@ -25,6 +25,8 @@ export function NotesPanel({
   onUpdate,
   onDelete,
   onRetry,
+  canRetrySave,
+  onRetrySave,
 }: {
   notes: Note[];
   status: NotesLoadState;
@@ -35,6 +37,8 @@ export function NotesPanel({
   onUpdate: (id: string, content: string) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
   onRetry: () => void;
+  canRetrySave: boolean;
+  onRetrySave: () => void;
 }) {
   const selected = notes.find((note) => note.id === selectedId);
   const [editing, setEditing] = useState(false);
@@ -148,9 +152,20 @@ export function NotesPanel({
         </span>
       </div>
       {error ? (
-        <p role="alert" className="mb-3 text-xs font-semibold text-red-700">
-          {error}
-        </p>
+        <div className="mb-3" role="alert">
+          <p className="text-xs font-semibold text-red-700">{error}</p>
+          {canRetrySave ? (
+            <Button
+              className="mt-2"
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={onRetrySave}
+            >
+              <RefreshCw className="size-3.5" /> Try saving again
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       {notes.length ? (
         <div className="space-y-2">

@@ -1,6 +1,6 @@
 # NotebookLM-Clone Architecture
 
-Status: implemented through the grounded Question and Citation journey; private Source ingestion and Notes remain planned
+Status: implemented through the grounded Question, Citation, and private Note journey; private Source ingestion remains planned
 
 This architecture optimizes for a credible full-stack interview demonstration within a 15–20 hour delivery budget. It favors narrow interfaces, explicit ownership, recoverable processing, and inspectable grounding over production-scale infrastructure.
 

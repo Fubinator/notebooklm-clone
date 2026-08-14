@@ -10,11 +10,9 @@ export type NotesLoadState = "empty" | "loading" | "ready" | "error";
 
 export function useNotes({
   notebookId,
-  ownerId,
   repository,
 }: {
   notebookId?: string;
-  ownerId: string;
   repository: NoteRepository;
 }) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -23,6 +21,11 @@ export function useNotes({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [failedSave, setFailedSave] = useState<{
+    answerId: string;
+    content: string;
+  }>();
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -58,7 +61,7 @@ export function useNotes({
   }, [load]);
 
   const create = useCallback(
-    async (answerId: string, question: string, content: string) => {
+    async (answerId: string, content: string) => {
       if (!notebookId || pending) return undefined;
       const validation = validateNoteContent(content);
       if (!validation.ok) {
@@ -69,23 +72,25 @@ export function useNotes({
       if (existing) return existing;
       setPending(true);
       setError(undefined);
+      setNotice(undefined);
       try {
-        const note = await repository.create({
+        const note = await repository.saveAnswer({
           notebookId,
-          ownerId,
           answerId,
-          question,
           content: validation.content,
         });
         setNotes((current) => [note, ...current]);
+        setFailedSave(undefined);
+        setNotice("Note saved");
         return note;
       } catch {
+        setFailedSave({ answerId, content });
         setError("That Note didn’t save. Please try again.");
       } finally {
         setPending(false);
       }
     },
-    [notebookId, notes, ownerId, pending, repository],
+    [notebookId, notes, pending, repository],
   );
 
   const update = useCallback(
@@ -97,11 +102,13 @@ export function useNotes({
       }
       setPending(true);
       setError(undefined);
+      setNotice(undefined);
       try {
         const updated = await repository.update(id, validation.content);
         setNotes((current) =>
           current.map((note) => (note.id === id ? updated : note)),
         );
+        setNotice("Note updated");
         return true;
       } catch {
         setError("That change didn’t save. Please try again.");
@@ -117,9 +124,11 @@ export function useNotes({
     async (id: string) => {
       setPending(true);
       setError(undefined);
+      setNotice(undefined);
       try {
         await repository.remove(id);
         setNotes((current) => current.filter((note) => note.id !== id));
+        setNotice("Note deleted");
         return true;
       } catch {
         setError("That Note couldn’t be deleted. Please try again.");
@@ -136,7 +145,13 @@ export function useNotes({
     status,
     pending,
     error,
+    notice,
+    canRetrySave: Boolean(failedSave),
     create,
+    retrySave: () =>
+      failedSave
+        ? create(failedSave.answerId, failedSave.content)
+        : Promise.resolve(undefined),
     update,
     remove,
     retry: load,
