@@ -73,23 +73,22 @@ export function AddSourceDialog({
               </Button>
             ))}
           </div>
-          {kind === "pasted_text" ? (
-            <div>
-              <label
-                className="mb-2 block text-xs font-semibold"
-                htmlFor="source-title"
-              >
-                Source title
-              </label>
-              <Input
-                id="source-title"
-                autoFocus
-                maxLength={120}
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-              />
-            </div>
-          ) : (
+          <div>
+            <label
+              className="mb-2 block text-xs font-semibold"
+              htmlFor="source-title"
+            >
+              Source title
+            </label>
+            <Input
+              id="source-title"
+              autoFocus
+              maxLength={120}
+              value={title}
+              onChange={(event) => onTitleChange(event.target.value)}
+            />
+          </div>
+          {kind === "pdf" ? (
             <div>
               <label
                 className="mb-2 block text-xs font-semibold"
@@ -115,30 +114,31 @@ export function AddSourceDialog({
                 </p>
               ) : null}
             </div>
-          )}
-          <div>
-            <div className="mb-2 flex justify-between gap-3 text-xs font-semibold">
-              <label htmlFor="source-content">Pasted text</label>
-              <span
-                className={
-                  content.length > PASTED_TEXT_CHARACTER_LIMIT
-                    ? "text-[var(--danger)]"
-                    : "text-[var(--muted)]"
-                }
-              >
-                {content.length.toLocaleString()} /{" "}
-                {PASTED_TEXT_CHARACTER_LIMIT.toLocaleString()}
-              </span>
+          ) : (
+            <div>
+              <div className="mb-2 flex justify-between gap-3 text-xs font-semibold">
+                <label htmlFor="source-content">Pasted text</label>
+                <span
+                  className={
+                    content.length > PASTED_TEXT_CHARACTER_LIMIT
+                      ? "text-[var(--danger)]"
+                      : "text-[var(--muted)]"
+                  }
+                >
+                  {content.length.toLocaleString()} /{" "}
+                  {PASTED_TEXT_CHARACTER_LIMIT.toLocaleString()}
+                </span>
+              </div>
+              <textarea
+                id="source-content"
+                className="min-h-56 w-full resize-y rounded-xl border border-[var(--line-strong)] bg-white p-3.5 text-sm leading-6 outline-none focus:border-[var(--ink)] focus:ring-2 focus:ring-[var(--sage)]"
+                value={content}
+                onChange={(event) => onContentChange(event.target.value)}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? errorId : undefined}
+              />
             </div>
-            <textarea
-              id="source-content"
-              className="min-h-56 w-full resize-y rounded-xl border border-[var(--line-strong)] bg-white p-3.5 text-sm leading-6 outline-none focus:border-[var(--ink)] focus:ring-2 focus:ring-[var(--sage)]"
-              value={content}
-              onChange={(event) => onContentChange(event.target.value)}
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? errorId : undefined}
-            />
-          </div>
+          )}
           {error ? (
             <p
               id={errorId}

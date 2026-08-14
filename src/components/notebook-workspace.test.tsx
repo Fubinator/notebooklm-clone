@@ -298,6 +298,31 @@ describe("Notebook workspace", () => {
     );
   });
 
+  it("switches to PDF upload without changing a controlled input to uncontrolled", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDF" }));
+
+    expect(screen.getByLabelText("Source title")).toBeInTheDocument();
+    expect(screen.getByLabelText("PDF file")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pasted text")).not.toBeInTheDocument();
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining(
+        "A component is changing a controlled input to be uncontrolled",
+      ),
+    );
+    consoleError.mockRestore();
+  });
+
   it("restores a private grounded Answer and opens its exact Citation", async () => {
     const pastedSource: ReadableSource = {
       ...exampleSource,
