@@ -23,6 +23,7 @@ import {
 } from "@/components/workspace-panes";
 import { ConversationPane } from "@/components/conversation-pane";
 import { SourcesPane } from "@/components/sources-pane";
+import { AddSourceDialog } from "@/components/source-dialog";
 import { StudioPane, type StudioView } from "@/components/studio-pane";
 import type { Citation } from "@/features/conversations/model";
 import { createConversationRepository } from "@/features/conversations/repository";
@@ -33,6 +34,7 @@ import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspac
 import { createNoteRepository } from "@/features/notes/repository";
 import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
+import { validatePastedText } from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 
 type WorkspaceProps = {
@@ -97,6 +99,11 @@ export function NotebookWorkspace({
   const [title, setTitle] = useState("");
   const [renameTitle, setRenameTitle] = useState("");
   const [formError, setFormError] = useState<string>();
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [sourceContent, setSourceContent] = useState("");
+  const [sourceError, setSourceError] = useState<string>();
+  const [sourcePending, setSourcePending] = useState(false);
   const previousMobilePanel = useRef<MobilePanel>("conversation");
 
   useEffect(() => {
@@ -196,6 +203,32 @@ export function NotebookWorkspace({
     setSelectedCitation(undefined);
   }
 
+  async function handleAddSource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validation = validatePastedText(sourceContent);
+    if (!sourceTitle.trim())
+      return setSourceError("Enter a title for this Source.");
+    if (!validation.ok) return setSourceError(validation.message);
+    setSourcePending(true);
+    try {
+      await sourceLibrary.create({
+        title: sourceTitle,
+        content: validation.content,
+      });
+      setSourceOpen(false);
+      setSourceTitle("");
+      setSourceContent("");
+    } catch (error) {
+      setSourceError(
+        error instanceof Error
+          ? error.message
+          : "The Source could not be added.",
+      );
+    } finally {
+      setSourcePending(false);
+    }
+  }
+
   return (
     <main className="flex h-dvh min-h-[640px] flex-col overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
       <NotebookHeader
@@ -235,6 +268,11 @@ export function NotebookWorkspace({
           }}
           onRetry={() => void sourceLibrary.retry()}
           onClose={() => setMobilePanel("conversation")}
+          onAdd={() => {
+            setSourceError(undefined);
+            setSourceOpen(true);
+          }}
+          onProcess={(sourceId) => void sourceLibrary.process(sourceId)}
         />
         <ConversationPane
           visible
@@ -341,6 +379,24 @@ export function NotebookWorkspace({
         error={formError}
         pending={workspace.pending}
         onConfirm={() => void handleDelete()}
+      />
+
+      <AddSourceDialog
+        open={sourceOpen}
+        onOpenChange={setSourceOpen}
+        title={sourceTitle}
+        content={sourceContent}
+        onTitleChange={(value) => {
+          setSourceTitle(value);
+          setSourceError(undefined);
+        }}
+        onContentChange={(value) => {
+          setSourceContent(value);
+          setSourceError(undefined);
+        }}
+        error={sourceError}
+        pending={sourcePending}
+        onSubmit={(event) => void handleAddSource(event)}
       />
 
       <div className="sr-only" role="status" aria-live="polite">

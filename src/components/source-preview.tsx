@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,10 @@ export function SourcePreview({
             <FileText className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="eyebrow">Ready · {source.passages.length} Passages</p>
+            <p className="eyebrow">
+              {source.processing_stage === "ready" ? "Ready" : "Processing"} ·{" "}
+              {source.passages.length} Passages
+            </p>
             <h1 className="mt-1 font-serif text-3xl font-semibold tracking-[-0.03em]">
               {source.title}
             </h1>
@@ -37,14 +40,16 @@ export function SourcePreview({
               {source.attribution}
             </p>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">
-              <a
-                className="inline-flex items-center gap-1 text-[var(--accent-strong)] hover:underline"
-                href={source.license_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {source.license_name} <ExternalLink className="size-3" />
-              </a>
+              {source.license_url ? (
+                <a
+                  className="inline-flex items-center gap-1 text-[var(--accent-strong)] hover:underline"
+                  href={source.license_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {source.license_name} <ExternalLink className="size-3" />
+                </a>
+              ) : null}
               {source.original_url ? (
                 <a
                   className="inline-flex items-center gap-1 text-[var(--accent-strong)] hover:underline"
@@ -60,6 +65,12 @@ export function SourcePreview({
         </div>
 
         <div className="mt-8 space-y-4">
+          {!source.passages.length ? (
+            <div className="rounded-2xl border border-[var(--line)] bg-white p-8 text-center text-sm text-[var(--muted)]">
+              <LoaderCircle className="mx-auto mb-3 size-5 animate-spin" />
+              The extracted text preview will appear after Passages are built.
+            </div>
+          ) : null}
           {source.passages.map((passage) => (
             <section
               key={passage.id}

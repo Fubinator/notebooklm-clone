@@ -21,6 +21,7 @@ export function useSourceLibrary({
     notebookId ? "loading" : "empty",
   );
   const requestId = useRef(0);
+  const advancing = useRef(new Set<string>());
 
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
@@ -58,6 +59,30 @@ export function useSourceLibrary({
     };
   }, [load]);
 
+  const process = useCallback(
+    async (sourceId: string) => {
+      if (advancing.current.has(sourceId)) return;
+      advancing.current.add(sourceId);
+      try {
+        await repository.advance(sourceId);
+        await load();
+      } finally {
+        advancing.current.delete(sourceId);
+      }
+    },
+    [load, repository],
+  );
+
+  useEffect(() => {
+    if (status !== "ready") return;
+    const next = sources.find(({ processing_stage }) =>
+      ["uploaded", "extracting", "chunking", "embedding"].includes(
+        processing_stage,
+      ),
+    );
+    if (next) void process(next.id);
+  }, [process, sources, status]);
+
   const showsCurrentNotebook = loadedNotebookId === notebookId;
   const visibleSources = showsCurrentNotebook ? sources : [];
   const visibleStatus = !notebookId
@@ -73,5 +98,11 @@ export function useSourceLibrary({
     status: visibleStatus,
     select: setSelectedId,
     retry: load,
+    async create(input: { title: string; content: string }) {
+      if (!notebookId) return;
+      await repository.create({ notebookId, ...input });
+      await load();
+    },
+    process,
   };
 }

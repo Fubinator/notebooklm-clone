@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   rename: vi.fn(),
   remove: vi.fn(),
   sourceList: vi.fn(),
+  sourceCreate: vi.fn(),
+  sourceAdvance: vi.fn(),
   conversationList: vi.fn(),
   askQuestion: vi.fn(),
   noteList: vi.fn(),
@@ -34,7 +36,11 @@ vi.mock("@/features/notebooks/repository", () => ({
 }));
 
 vi.mock("@/features/sources/repository", () => ({
-  createSourceRepository: () => ({ list: mocks.sourceList }),
+  createSourceRepository: () => ({
+    list: mocks.sourceList,
+    create: mocks.sourceCreate,
+    advance: mocks.sourceAdvance,
+  }),
 }));
 
 vi.mock("@/features/conversations/repository", () => ({
@@ -93,7 +99,13 @@ const exampleSource: ReadableSource = {
   embedding_model: "@cf/baai/bge-small-en-v1.5",
   embedding_dimensions: 384,
   embedding_pooling: "cls",
+  character_count: "Readable source content".length,
+  failure_category: null,
+  retry_stage: null,
+  attempt_count: 0,
+  correlation_id: null,
   created_at: "2026-08-13T10:00:00.000Z",
+  updated_at: "2026-08-13T10:00:00.000Z",
   passages: [
     {
       id: "00000000-0000-4000-8100-000000000001",
@@ -173,6 +185,8 @@ describe("Notebook workspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sourceList.mockResolvedValue([]);
+    mocks.sourceCreate.mockResolvedValue(undefined);
+    mocks.sourceAdvance.mockResolvedValue(undefined);
     mocks.conversationList.mockResolvedValue([]);
     mocks.askQuestion.mockResolvedValue(undefined);
     mocks.noteList.mockResolvedValue([]);
@@ -251,6 +265,35 @@ describe("Notebook workspace", () => {
       screen.queryByText("Delete active Notebook"),
     ).not.toBeInTheDocument();
     await screen.findByText("No Sources yet");
+  });
+
+  it("adds validated pasted text to a private Notebook", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    expect(screen.getAllByText(/50,000 characters/)).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText("Source title"), {
+      target: { value: "Interview notes" },
+    });
+    fireEvent.change(screen.getByLabelText("Pasted text"), {
+      target: { value: "First paragraph.\n\nSecond paragraph." },
+    });
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Add Source" }).at(-1)!,
+    );
+
+    await waitFor(() =>
+      expect(mocks.sourceCreate).toHaveBeenCalledWith({
+        notebookId: first.id,
+        title: "Interview notes",
+        content: "First paragraph.\n\nSecond paragraph.",
+      }),
+    );
   });
 
   it("restores a private grounded Answer and opens its exact Citation", async () => {

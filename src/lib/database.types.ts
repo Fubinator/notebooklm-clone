@@ -203,7 +203,13 @@ export type Database = {
           embedding_model: string;
           embedding_dimensions: number;
           embedding_pooling: string;
+          character_count: number;
+          failure_category: string | null;
+          retry_stage: "extracting" | "chunking" | "embedding" | null;
+          attempt_count: number;
+          correlation_id: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -220,7 +226,13 @@ export type Database = {
           embedding_model: string;
           embedding_dimensions: number;
           embedding_pooling: string;
+          character_count?: never;
+          failure_category?: string | null;
+          retry_stage?: "extracting" | "chunking" | "embedding" | null;
+          attempt_count?: number;
+          correlation_id?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["sources"]["Insert"]>;
         Relationships: [
@@ -242,7 +254,7 @@ export type Database = {
           page_number: number | null;
           paragraph_start: number | null;
           paragraph_end: number | null;
-          embedding: string;
+          embedding: string | null;
           created_at: string;
         };
         Insert: {
@@ -253,7 +265,7 @@ export type Database = {
           page_number?: number | null;
           paragraph_start?: number | null;
           paragraph_end?: number | null;
-          embedding: string;
+          embedding?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["passages"]["Insert"]>;
