@@ -27,6 +27,9 @@ export function ConversationPane({
   onAsk,
   onRetry,
   onCitation,
+  savedAnswerIds,
+  savingAnswerId,
+  onSaveAnswer,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -41,6 +44,9 @@ export function ConversationPane({
   onAsk: (question: string) => Promise<boolean>;
   onRetry: () => void;
   onCitation: (citation: Citation) => void;
+  savedAnswerIds: Set<string>;
+  savingAnswerId?: string;
+  onSaveAnswer: (answer: ConversationMessage) => void;
 }) {
   return (
     <section
@@ -49,6 +55,7 @@ export function ConversationPane({
         visible ? "flex" : "hidden",
       )}
       aria-label="Conversation"
+      id="conversation-panel"
     >
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--line)] px-5">
         <div className="flex items-center gap-2">
@@ -73,6 +80,9 @@ export function ConversationPane({
           onAsk={onAsk}
           onRetry={onRetry}
           onCitation={onCitation}
+          savedAnswerIds={savedAnswerIds}
+          savingAnswerId={savingAnswerId}
+          onSaveAnswer={onSaveAnswer}
         />
       ) : (
         <NoNotebook onCreate={onCreate} />

@@ -5,6 +5,7 @@ import {
   Lightbulb,
   LoaderCircle,
   RefreshCw,
+  Save,
   Search,
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -28,6 +29,9 @@ export function ConversationView({
   onAsk,
   onRetry,
   onCitation,
+  savedAnswerIds,
+  savingAnswerId,
+  onSaveAnswer,
 }: {
   notebook: Notebook;
   messages: ConversationMessage[];
@@ -38,6 +42,9 @@ export function ConversationView({
   onAsk: (question: string) => Promise<boolean>;
   onRetry: () => void;
   onCitation: (citation: Citation) => void;
+  savedAnswerIds: Set<string>;
+  savingAnswerId?: string;
+  onSaveAnswer: (answer: ConversationMessage) => void;
 }) {
   const [question, setQuestion] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -79,6 +86,11 @@ export function ConversationView({
                 key={message.id}
                 message={message}
                 onCitation={onCitation}
+                saved={savedAnswerIds.has(message.id)}
+                saving={savingAnswerId === message.id}
+                onSave={() => {
+                  onSaveAnswer(message);
+                }}
               />
             ))}
             {pendingQuestion ? (
@@ -108,7 +120,7 @@ export function ConversationView({
         className="shrink-0 border-t border-[var(--line)] p-4 sm:p-5"
         onSubmit={(event) => void submit(event)}
       >
-        <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--line-strong)] bg-white p-2 shadow-[0_8px_28px_rgba(24,38,31,.06)]">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--line-strong)] bg-white p-2 shadow-[0_8px_28px_rgba(24,38,31,.06)] focus-within:ring-2 focus-within:ring-[var(--ink)] focus-within:ring-offset-2">
           <div className="flex items-center gap-2">
             <Search className="ml-2 size-4 shrink-0 text-[var(--muted-light)]" />
             <input
@@ -125,7 +137,7 @@ export function ConversationView({
             />
             <button
               disabled={!canAsk || Boolean(pendingQuestion) || !question.trim()}
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--accent-strong)] text-white disabled:bg-[var(--line)]"
+              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--accent-strong)] text-white outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 disabled:bg-[var(--line)] disabled:text-[var(--muted)]"
               aria-label="Submit Question"
             >
               <ArrowUp className="size-4" />
@@ -152,9 +164,15 @@ export function ConversationView({
 function MessageCard({
   message,
   onCitation,
+  saved,
+  saving,
+  onSave,
 }: {
   message: ConversationMessage;
   onCitation: (citation: Citation) => void;
+  saved: boolean;
+  saving: boolean;
+  onSave: () => void;
 }) {
   if (message.role === "question") {
     return <QuestionBubble content={message.content} />;
@@ -193,13 +211,28 @@ function MessageCard({
           {message.citations.map((citation) => (
             <button
               key={citation.id}
-              className="rounded-full border border-[var(--line-strong)] bg-[var(--sage)] px-3 py-1.5 text-[11px] font-bold text-[var(--ink-soft)] transition-colors hover:border-[var(--accent-strong)]"
+              className="rounded-full border border-[var(--line-strong)] bg-[var(--sage)] px-3 py-1.5 text-[11px] font-bold text-[var(--ink-soft)] transition-colors outline-none hover:border-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2"
               onClick={() => onCitation(citation)}
             >
               Citation {citation.display_order}
             </button>
           ))}
         </div>
+      ) : null}
+      {message.status === "completed" ? (
+        <button
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--sage)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:opacity-60"
+          disabled={saved || saving}
+          onClick={onSave}
+          aria-label={saved ? "Answer saved as Note" : "Save Answer as Note"}
+        >
+          {saving ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Save className="size-3.5" />
+          )}
+          {saved ? "Saved to Notes" : saving ? "Saving…" : "Save as Note"}
+        </button>
       ) : null}
     </article>
   );
@@ -262,7 +295,7 @@ function ConversationWelcome({
             <button
               key={suggestion}
               disabled={!canAsk}
-              className="rounded-xl border border-[var(--line)] bg-white px-3 py-3 text-left text-xs leading-5 font-medium text-[var(--muted)] transition-colors hover:border-[var(--accent-strong)] disabled:opacity-50"
+              className="rounded-xl border border-[var(--line)] bg-white px-3 py-3 text-left text-xs leading-5 font-medium text-[var(--muted)] transition-colors outline-none hover:border-[var(--accent-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:ring-offset-2 disabled:opacity-50"
               onClick={() => onSuggestion(suggestion)}
             >
               {suggestion}

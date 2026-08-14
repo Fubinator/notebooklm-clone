@@ -12,6 +12,30 @@ export type ProcessingStage =
 export type Database = {
   public: {
     Tables: {
+      notes: {
+        Row: {
+          id: string;
+          notebook_id: string;
+          owner_id: string;
+          origin_answer_id: string;
+          origin_question: string;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          notebook_id: string;
+          owner_id: string;
+          origin_answer_id: string;
+          origin_question?: string;
+          content: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: { content?: string; updated_at?: string };
+        Relationships: [];
+      };
       citations: {
         Row: {
           id: string;

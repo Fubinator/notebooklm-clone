@@ -1,6 +1,7 @@
 "use client";
 
-import { FilePlus2, FileText, LoaderCircle, RefreshCw } from "lucide-react";
+import { FilePlus2, FileText, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
@@ -15,6 +16,7 @@ export function SourcesPane({
   selectedSourceId,
   onSelect,
   onRetry,
+  onClose,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -23,23 +25,43 @@ export function SourcesPane({
   selectedSourceId?: string;
   onSelect: (sourceId: string) => void;
   onRetry: () => void;
+  onClose: () => void;
 }) {
+  const drawerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (visible) drawerRef.current?.focus();
+  }, [visible]);
+
   return (
     <aside
+      ref={drawerRef}
+      tabIndex={visible ? -1 : undefined}
+      role={visible ? "dialog" : undefined}
+      aria-modal={visible ? true : undefined}
       className={cn(
-        "min-h-0 flex-col border-r border-[var(--line)] bg-[var(--paper-deep)] lg:flex",
+        "absolute inset-y-0 left-0 z-20 min-h-0 w-[min(88vw,360px)] flex-col border-r border-[var(--line)] bg-[var(--paper-deep)] shadow-2xl outline-none lg:static lg:z-auto lg:flex lg:w-auto lg:shadow-none",
         visible ? "flex" : "hidden",
       )}
-      aria-label="Sources"
+      aria-label={visible ? "Sources drawer" : "Sources"}
+      id="sources-panel"
     >
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--line)] px-5">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-[var(--muted)]" />
           <h2 className="text-sm font-semibold">Sources</h2>
         </div>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
-          {sources.length} / 5
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
+            {sources.length} / 5
+          </span>
+          <button
+            className="rounded-lg p-1.5 text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none lg:hidden"
+            aria-label="Close Sources drawer"
+            onClick={onClose}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <Button
@@ -162,7 +184,7 @@ function SourceListState({
         <button
           key={source.id}
           className={cn(
-            "w-full rounded-xl border bg-white p-3 text-left transition-colors hover:border-[var(--line-strong)]",
+            "w-full rounded-xl border bg-white p-3 text-left transition-colors hover:border-[var(--line-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none",
             selectedSourceId === source.id
               ? "border-[var(--accent-strong)]"
               : "border-[var(--line)]",
