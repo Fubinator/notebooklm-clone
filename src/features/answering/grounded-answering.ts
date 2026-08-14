@@ -33,14 +33,7 @@ export async function answerGroundedQuestion(
     );
 
     if (evidence.length === 0) {
-      await dependencies.persistence.complete({
-        answerId: pending.answerId,
-        content: INSUFFICIENT_EVIDENCE_ANSWER,
-        kind: "insufficient_evidence",
-        provider: null,
-        model: null,
-        citationIds: [],
-      });
+      await persistInsufficientEvidence(pending, dependencies);
       return { status: "completed", kind: "insufficient_evidence" };
     }
 
@@ -67,6 +60,11 @@ export async function answerGroundedQuestion(
       return { status: "failed", kind: "safe_failure" };
     }
 
+    if (validation.value.kind === "insufficient_evidence") {
+      await persistInsufficientEvidence(pending, dependencies);
+      return { status: "completed", kind: "insufficient_evidence" };
+    }
+
     await persistValidatedAnswer(pending, validation.value, dependencies);
     return { status: "completed", kind: "grounded" };
   } catch (error) {
@@ -81,7 +79,7 @@ export async function answerGroundedQuestion(
 
 async function persistValidatedAnswer(
   pending: PendingAnswer,
-  answer: ValidatedModelAnswer,
+  answer: Extract<ValidatedModelAnswer, { kind: "grounded" }>,
   dependencies: GroundedAnsweringDependencies,
 ) {
   await dependencies.persistence.complete({
@@ -91,5 +89,19 @@ async function persistValidatedAnswer(
     provider: dependencies.chatModel.provider,
     model: dependencies.chatModel.model,
     citationIds: answer.citationIds,
+  });
+}
+
+async function persistInsufficientEvidence(
+  pending: PendingAnswer,
+  dependencies: GroundedAnsweringDependencies,
+) {
+  await dependencies.persistence.complete({
+    answerId: pending.answerId,
+    content: INSUFFICIENT_EVIDENCE_ANSWER,
+    kind: "insufficient_evidence",
+    provider: null,
+    model: null,
+    citationIds: [],
   });
 }

@@ -28,6 +28,7 @@ describe("Cloudflare chat adapter", () => {
           success: true,
           result: {
             response: {
+              answer_kind: "grounded",
               answer: "Trustworthiness depends on context.",
               citation_ids: ["passage-1"],
             },

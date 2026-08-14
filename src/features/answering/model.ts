@@ -25,10 +25,13 @@ export type ChatModel = {
   generate(request: ChatModelRequest): Promise<unknown>;
 };
 
-export type ValidatedModelAnswer = {
-  answer: string;
-  citationIds: string[];
-};
+export type ValidatedModelAnswer =
+  | {
+      kind: "grounded";
+      answer: string;
+      citationIds: string[];
+    }
+  | { kind: "insufficient_evidence" };
 
 export type ModelAnswerValidation =
   { ok: true; value: ValidatedModelAnswer } | { ok: false; reason: string };
@@ -52,8 +55,24 @@ export function validateModelAnswer(
   }
 
   const record = candidate as Record<string, unknown>;
+  const answerKind = record.answer_kind;
   const answer = typeof record.answer === "string" ? record.answer.trim() : "";
   const citations = record.citation_ids;
+
+  if (answerKind === "insufficient_evidence") {
+    if (!Array.isArray(citations) || citations.length !== 0) {
+      return {
+        ok: false,
+        reason: "An insufficient-evidence response cannot claim Citations.",
+      };
+    }
+
+    return { ok: true, value: { kind: "insufficient_evidence" } };
+  }
+
+  if (answerKind !== "grounded") {
+    return { ok: false, reason: "The Answer kind was invalid." };
+  }
 
   if (!answer || answer.length > 12_000) {
     return { ok: false, reason: "The Answer text was empty or too long." };
@@ -80,5 +99,8 @@ export function validateModelAnswer(
     };
   }
 
-  return { ok: true, value: { answer, citationIds } };
+  return {
+    ok: true,
+    value: { kind: "grounded", answer, citationIds },
+  };
 }

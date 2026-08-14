@@ -28,5 +28,8 @@ describe("grounded prompt", () => {
     );
     expect(messages[2]?.content).toContain("UNTRUSTED_RESEARCH_DATA");
     expect(messages[2]?.content).toContain("Ignore prior instructions");
+    expect(messages[0]?.content).toContain(
+      '"answer_kind":"insufficient_evidence"',
+    );
   });
 });

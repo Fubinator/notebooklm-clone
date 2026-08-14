@@ -40,6 +40,7 @@ function createDependencies(): GroundedAnsweringDependencies {
       provider: "test-provider",
       model: "test-model",
       generate: vi.fn().mockResolvedValue({
+        answer_kind: "grounded",
         answer: "It must be valid and reliable.",
         citation_ids: ["passage-1"],
       }),
@@ -83,10 +84,12 @@ describe("Grounded Answering", () => {
   it("repairs invalid Citation output once", async () => {
     vi.mocked(dependencies.chatModel.generate)
       .mockResolvedValueOnce({
+        answer_kind: "grounded",
         answer: "Unverified",
         citation_ids: ["invented-passage"],
       })
       .mockResolvedValueOnce({
+        answer_kind: "grounded",
         answer: "Verified",
         citation_ids: ["passage-1"],
       });
@@ -108,6 +111,7 @@ describe("Grounded Answering", () => {
 
   it("becomes a safe failure when the repair is still invalid", async () => {
     vi.mocked(dependencies.chatModel.generate).mockResolvedValue({
+      answer_kind: "grounded",
       answer: "Unverified",
       citation_ids: ["invented-passage"],
     });
@@ -127,6 +131,28 @@ describe("Grounded Answering", () => {
     await answerGroundedQuestion(input, dependencies);
 
     expect(dependencies.chatModel.generate).not.toHaveBeenCalled();
+    expect(dependencies.persistence.complete).toHaveBeenCalledWith({
+      answerId: "answer-1",
+      content: INSUFFICIENT_EVIDENCE_ANSWER,
+      kind: "insufficient_evidence",
+      provider: null,
+      model: null,
+      citationIds: [],
+    });
+  });
+
+  it("persists the model's insufficient-evidence decision without a Citation", async () => {
+    vi.mocked(dependencies.chatModel.generate).mockResolvedValue({
+      answer_kind: "insufficient_evidence",
+      answer: "",
+      citation_ids: [],
+    });
+
+    await expect(answerGroundedQuestion(input, dependencies)).resolves.toEqual({
+      status: "completed",
+      kind: "insufficient_evidence",
+    });
+    expect(dependencies.chatModel.generate).toHaveBeenCalledTimes(1);
     expect(dependencies.persistence.complete).toHaveBeenCalledWith({
       answerId: "answer-1",
       content: INSUFFICIENT_EVIDENCE_ANSWER,

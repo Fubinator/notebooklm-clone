@@ -21,16 +21,47 @@ describe("model Answer validation", () => {
   it("accepts unique Citation IDs from the retrieved evidence set", () => {
     expect(
       validateModelAnswer(
-        { answer: "A supported Answer.", citation_ids: ["passage-1"] },
+        {
+          answer_kind: "grounded",
+          answer: "A supported Answer.",
+          citation_ids: ["passage-1"],
+        },
         evidence,
       ),
     ).toEqual({
       ok: true,
       value: {
+        kind: "grounded",
         answer: "A supported Answer.",
         citationIds: ["passage-1"],
       },
     });
+  });
+
+  it("accepts an insufficient-evidence decision only without Citations", () => {
+    expect(
+      validateModelAnswer(
+        {
+          answer_kind: "insufficient_evidence",
+          answer: "",
+          citation_ids: [],
+        },
+        evidence,
+      ),
+    ).toEqual({
+      ok: true,
+      value: { kind: "insufficient_evidence" },
+    });
+    expect(
+      validateModelAnswer(
+        {
+          answer_kind: "insufficient_evidence",
+          answer: "",
+          citation_ids: ["passage-1"],
+        },
+        evidence,
+      ),
+    ).toMatchObject({ ok: false });
   });
 
   it("rejects malformed, duplicate, and out-of-evidence Citations", () => {
@@ -39,13 +70,21 @@ describe("model Answer validation", () => {
     });
     expect(
       validateModelAnswer(
-        { answer: "Answer", citation_ids: ["passage-1", "passage-1"] },
+        {
+          answer_kind: "grounded",
+          answer: "Answer",
+          citation_ids: ["passage-1", "passage-1"],
+        },
         evidence,
       ),
     ).toMatchObject({ ok: false });
     expect(
       validateModelAnswer(
-        { answer: "Answer", citation_ids: ["invented-passage"] },
+        {
+          answer_kind: "grounded",
+          answer: "Answer",
+          citation_ids: ["invented-passage"],
+        },
         evidence,
       ),
     ).toEqual({
