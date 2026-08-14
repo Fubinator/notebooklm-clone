@@ -6,7 +6,13 @@ alter table public.sources
     or (kind <> 'pdf' and char_length(btrim(content)) > 0)
   ),
   add constraint sources_pdf_storage check (
-    (kind = 'pdf' and storage_path is not null)
+    (
+      kind = 'pdf'
+      and (
+        storage_path is not null
+        or (processing_stage = 'ready' and original_url is not null)
+      )
+    )
     or (kind <> 'pdf' and storage_path is null)
   );
 

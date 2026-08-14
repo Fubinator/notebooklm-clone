@@ -1,6 +1,12 @@
 begin;
 
-select plan(3);
+select plan(5);
+
+select is(
+  (select storage_path from public.sources where id = '00000000-0000-4000-8000-000000000031'),
+  null::text,
+  'A ready attributed Example PDF does not require a private original object'
+);
 
 insert into auth.users (id, instance_id, aud, role, is_anonymous)
 values
@@ -20,6 +26,22 @@ insert into public.sources (
   'Private paper', 'pdf', 'Added by this Guest', 'Private Source', '', '',
   'abababab-abab-4bab-8bab-abababababab/60000000-0000-4000-8000-000000000001/60000000-0000-4000-8000-000000000002/original.pdf',
   'uploaded', 'cloudflare-workers-ai', '@cf/baai/bge-small-en-v1.5', 384, 'cls'
+);
+
+select throws_ok(
+  $$
+    insert into public.sources (
+      notebook_id, title, kind, attribution, license_name, license_url, content,
+      processing_stage, embedding_provider, embedding_model, embedding_dimensions, embedding_pooling
+    ) values (
+      '60000000-0000-4000-8000-000000000001', 'Missing original', 'pdf',
+      'Added by this Guest', 'Private Source', '', '', 'uploaded',
+      'cloudflare-workers-ai', '@cf/baai/bge-small-en-v1.5', 384, 'cls'
+    )
+  $$,
+  '23514',
+  null,
+  'A private uploaded PDF still requires a Storage path'
 );
 
 insert into storage.objects (bucket_id, name, owner_id, metadata)
