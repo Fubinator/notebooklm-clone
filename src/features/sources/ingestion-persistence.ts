@@ -19,7 +19,7 @@ export function createSourceIngestionPersistence(
     const { data, error } = await supabase
       .from("sources")
       .select(
-        "id, content, processing_stage, retry_stage, attempt_count, notebooks!inner(owner_id, is_example)",
+        "id, kind, content, storage_path, processing_stage, retry_stage, attempt_count, notebooks!inner(owner_id, is_example)",
       )
       .eq("id", sourceId)
       .eq("notebooks.owner_id", guestId)
@@ -45,7 +45,9 @@ export function createSourceIngestionPersistence(
       })
       .eq("id", sourceId)
       .eq("processing_stage", from)
-      .select("id, content, processing_stage, retry_stage, attempt_count")
+      .select(
+        "id, kind, content, storage_path, processing_stage, retry_stage, attempt_count",
+      )
       .maybeSingle();
     if (error) throw error;
     return data ? mapSource(data) : load(sourceId);
@@ -54,15 +56,32 @@ export function createSourceIngestionPersistence(
   return {
     load,
     transition,
+    async loadOriginal(sourceId) {
+      const source = await load(sourceId);
+      if (source.kind !== "pdf" || !source.storagePath)
+        throw new Error("pdf_storage_missing");
+      const { data, error } = await supabase.storage
+        .from("source-files")
+        .download(source.storagePath);
+      if (error || !data) throw new Error("pdf_storage_missing");
+      return new Uint8Array(await data.arrayBuffer());
+    },
+    async saveExtractedContent(sourceId, content) {
+      const { error } = await supabase
+        .from("sources")
+        .update({ content })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
     async replacePassages(sourceId: string, passages: BuiltPassage[]) {
       const { error: upsertError } = await supabase.from("passages").upsert(
         passages.map((passage) => ({
           source_id: sourceId,
           ordinal: passage.ordinal,
           content: passage.content,
-          page_number: null,
-          paragraph_start: passage.paragraphStart,
-          paragraph_end: passage.paragraphEnd,
+          page_number: passage.pageNumber ?? null,
+          paragraph_start: passage.pageNumber ? null : passage.paragraphStart,
+          paragraph_end: passage.pageNumber ? null : passage.paragraphEnd,
           embedding: null,
         })),
         { onConflict: "source_id,ordinal" },
@@ -79,7 +98,7 @@ export function createSourceIngestionPersistence(
       const { data, error } = await supabase
         .from("passages")
         .select(
-          "id, ordinal, content, paragraph_start, paragraph_end, embedding",
+          "id, ordinal, content, page_number, paragraph_start, paragraph_end, embedding",
         )
         .eq("source_id", sourceId)
         .order("ordinal");
@@ -88,8 +107,9 @@ export function createSourceIngestionPersistence(
         id: passage.id,
         ordinal: passage.ordinal,
         content: passage.content,
-        paragraphStart: passage.paragraph_start!,
-        paragraphEnd: passage.paragraph_end!,
+        paragraphStart: passage.paragraph_start ?? 0,
+        paragraphEnd: passage.paragraph_end ?? 0,
+        pageNumber: passage.page_number ?? undefined,
         embedding: passage.embedding,
       }));
     },
@@ -128,7 +148,9 @@ export function createSourceIngestionPersistence(
         })
         .eq("id", sourceId)
         .eq("processing_stage", current.processingStage)
-        .select("id, content, processing_stage, retry_stage, attempt_count")
+        .select(
+          "id, kind, content, storage_path, processing_stage, retry_stage, attempt_count",
+        )
         .maybeSingle();
       if (error) throw error;
       return data ? mapSource(data) : load(sourceId);
@@ -138,14 +160,18 @@ export function createSourceIngestionPersistence(
 
 function mapSource(source: {
   id: string;
+  kind: "pdf" | "pasted_text";
   content: string;
+  storage_path: string | null;
   processing_stage: ProcessingStage;
   retry_stage: RetryStage | null;
   attempt_count: number;
 }): IngestionSource {
   return {
     id: source.id,
+    kind: source.kind,
     content: source.content,
+    storagePath: source.storage_path,
     processingStage: source.processing_stage,
     retryStage: source.retry_stage,
     attemptCount: source.attempt_count,

@@ -1,12 +1,23 @@
 import type { ProcessingStage } from "@/lib/database.types";
 
 import { CLOUDFLARE_EMBEDDING } from "./cloudflare-embedding";
-import { buildPassages, type BuiltPassage } from "./passage-builder";
-import { pastedTextReader } from "./source-reader";
+import {
+  buildPassages,
+  buildPdfPassages,
+  type BuiltPassage,
+} from "./passage-builder";
+import {
+  deserializePdfPages,
+  pastedTextReader,
+  pdfReader,
+  serializePdfPages,
+} from "./source-reader";
 
 export type IngestionSource = {
   id: string;
   content: string;
+  kind: "pdf" | "pasted_text";
+  storagePath: string | null;
   processingStage: ProcessingStage;
   retryStage: RetryStage | null;
   attemptCount: number;
@@ -28,6 +39,8 @@ export type SourceIngestionPersistence = {
     to: ProcessingStage,
   ): Promise<IngestionSource>;
   replacePassages(sourceId: string, passages: BuiltPassage[]): Promise<void>;
+  loadOriginal(sourceId: string): Promise<Uint8Array>;
+  saveExtractedContent(sourceId: string, content: string): Promise<void>;
   listPassages(sourceId: string): Promise<IngestionPassage[]>;
   saveEmbeddings(
     sourceId: string,
@@ -82,7 +95,17 @@ export async function advanceSource(
   const retryStage = source.processingStage as RetryStage;
   try {
     if (source.processingStage === "extracting") {
-      pastedTextReader.read(source.content);
+      if (source.kind === "pdf") {
+        const pages = await pdfReader.read(
+          await dependencies.persistence.loadOriginal(sourceId),
+        );
+        await dependencies.persistence.saveExtractedContent(
+          sourceId,
+          serializePdfPages(pages),
+        );
+      } else {
+        pastedTextReader.read(source.content);
+      }
       return dependencies.persistence.transition(
         sourceId,
         "extracting",
@@ -91,7 +114,10 @@ export async function advanceSource(
     }
 
     if (source.processingStage === "chunking") {
-      const passages = buildPassages(pastedTextReader.read(source.content));
+      const passages =
+        source.kind === "pdf"
+          ? buildPdfPassages(deserializePdfPages(source.content))
+          : buildPassages(pastedTextReader.read(source.content));
       if (!passages.length) throw new Error("source_content_empty");
       await dependencies.persistence.replacePassages(sourceId, passages);
       return dependencies.persistence.transition(
@@ -146,6 +172,12 @@ export function safeIngestionCategory(error: unknown) {
       : "processing_failed";
   return [
     "source_content_empty",
+    "pdf_type_unsupported",
+    "pdf_content_empty",
+    "pdf_encrypted",
+    "pdf_unreadable",
+    "pdf_page_limit",
+    "pdf_storage_missing",
     "passages_missing",
     "embedding_provider_not_configured",
     "embedding_provider_request_failed",

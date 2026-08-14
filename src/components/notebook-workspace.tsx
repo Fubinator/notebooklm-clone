@@ -34,7 +34,10 @@ import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspac
 import { createNoteRepository } from "@/features/notes/repository";
 import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
-import { validatePastedText } from "@/features/sources/source-reader";
+import {
+  PDF_BYTE_LIMIT,
+  validatePastedText,
+} from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 
 type WorkspaceProps = {
@@ -102,6 +105,10 @@ export function NotebookWorkspace({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceContent, setSourceContent] = useState("");
+  const [sourceKind, setSourceKind] = useState<"pasted_text" | "pdf">(
+    "pasted_text",
+  );
+  const [sourceFile, setSourceFile] = useState<File>();
   const [sourceError, setSourceError] = useState<string>();
   const [sourcePending, setSourcePending] = useState(false);
   const previousMobilePanel = useRef<MobilePanel>("conversation");
@@ -205,19 +212,30 @@ export function NotebookWorkspace({
 
   async function handleAddSource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validation = validatePastedText(sourceContent);
     if (!sourceTitle.trim())
       return setSourceError("Enter a title for this Source.");
-    if (!validation.ok) return setSourceError(validation.message);
+    const validation = validatePastedText(sourceContent);
+    if (sourceKind === "pasted_text" && !validation.ok)
+      return setSourceError(validation.message);
+    if (sourceKind === "pdf" && !sourceFile)
+      return setSourceError("Choose a PDF to upload.");
+    if (sourceKind === "pdf" && sourceFile!.size > PDF_BYTE_LIMIT)
+      return setSourceError("PDFs must be 10 MB or smaller.");
     setSourcePending(true);
     try {
-      await sourceLibrary.create({
-        title: sourceTitle,
-        content: validation.content,
-      });
+      await sourceLibrary.create(
+        sourceKind === "pdf"
+          ? { title: sourceTitle, kind: "pdf", file: sourceFile! }
+          : {
+              title: sourceTitle,
+              kind: "pasted_text",
+              content: validation.content!,
+            },
+      );
       setSourceOpen(false);
       setSourceTitle("");
       setSourceContent("");
+      setSourceFile(undefined);
     } catch (error) {
       setSourceError(
         error instanceof Error
@@ -386,12 +404,22 @@ export function NotebookWorkspace({
         onOpenChange={setSourceOpen}
         title={sourceTitle}
         content={sourceContent}
+        kind={sourceKind}
+        file={sourceFile}
         onTitleChange={(value) => {
           setSourceTitle(value);
           setSourceError(undefined);
         }}
         onContentChange={(value) => {
           setSourceContent(value);
+          setSourceError(undefined);
+        }}
+        onKindChange={(value) => {
+          setSourceKind(value);
+          setSourceError(undefined);
+        }}
+        onFileChange={(value) => {
+          setSourceFile(value);
           setSourceError(undefined);
         }}
         error={sourceError}

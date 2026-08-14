@@ -13,15 +13,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PASTED_TEXT_CHARACTER_LIMIT } from "@/features/sources/source-reader";
+import {
+  PASTED_TEXT_CHARACTER_LIMIT,
+  PDF_BYTE_LIMIT,
+  PDF_PAGE_LIMIT,
+} from "@/features/sources/source-reader";
 
 export function AddSourceDialog({
   open,
   onOpenChange,
   title,
   content,
+  kind,
+  file,
   onTitleChange,
   onContentChange,
+  onKindChange,
+  onFileChange,
   error,
   pending,
   onSubmit,
@@ -30,8 +38,12 @@ export function AddSourceDialog({
   onOpenChange: (open: boolean) => void;
   title: string;
   content: string;
+  kind: "pasted_text" | "pdf";
+  file?: File;
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
+  onKindChange: (value: "pasted_text" | "pdf") => void;
+  onFileChange: (value?: File) => void;
   error?: string;
   pending: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -41,28 +53,69 @@ export function AddSourceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Add pasted text</DialogTitle>
+          <DialogTitle>Add Source</DialogTitle>
           <DialogDescription>
-            Add up to {PASTED_TEXT_CHARACTER_LIMIT.toLocaleString()} characters.
-            Paragraph breaks are preserved for Citations.
+            Paste up to {PASTED_TEXT_CHARACTER_LIMIT.toLocaleString()}{" "}
+            characters or upload a PDF up to {PDF_BYTE_LIMIT / 1024 / 1024} MB
+            and {PDF_PAGE_LIMIT} pages. Locations are preserved for Citations.
           </DialogDescription>
         </DialogHeader>
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <div>
-            <label
-              className="mb-2 block text-xs font-semibold"
-              htmlFor="source-title"
-            >
-              Source title
-            </label>
-            <Input
-              id="source-title"
-              autoFocus
-              maxLength={120}
-              value={title}
-              onChange={(event) => onTitleChange(event.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-2" aria-label="Source type">
+            {(["pasted_text", "pdf"] as const).map((option) => (
+              <Button
+                key={option}
+                type="button"
+                variant={kind === option ? "secondary" : "ghost"}
+                onClick={() => onKindChange(option)}
+              >
+                {option === "pdf" ? "Upload PDF" : "Paste text"}
+              </Button>
+            ))}
           </div>
+          {kind === "pasted_text" ? (
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold"
+                htmlFor="source-title"
+              >
+                Source title
+              </label>
+              <Input
+                id="source-title"
+                autoFocus
+                maxLength={120}
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+              />
+            </div>
+          ) : (
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold"
+                htmlFor="source-file"
+              >
+                PDF file
+              </label>
+              <Input
+                id="source-file"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(event) => onFileChange(event.target.files?.[0])}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? errorId : "pdf-limits"}
+              />
+              <p id="pdf-limits" className="mt-2 text-xs text-[var(--muted)]">
+                PDF only · 10 MB maximum · 50 pages maximum · password-protected
+                and scanned PDFs are not supported
+              </p>
+              {file ? (
+                <p className="mt-2 text-xs font-semibold">
+                  {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
+                </p>
+              ) : null}
+            </div>
+          )}
           <div>
             <div className="mb-2 flex justify-between gap-3 text-xs font-semibold">
               <label htmlFor="source-content">Pasted text</label>

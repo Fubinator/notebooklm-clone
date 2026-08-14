@@ -94,6 +94,7 @@ const exampleSource: ReadableSource = {
   license_name: "NIST Technical Series reuse terms",
   license_url: "https://www.nist.gov/open/copyright",
   content: "Readable source content",
+  storage_path: null,
   processing_stage: "ready",
   embedding_provider: "cloudflare-workers-ai",
   embedding_model: "@cf/baai/bge-small-en-v1.5",
@@ -291,6 +292,7 @@ describe("Notebook workspace", () => {
       expect(mocks.sourceCreate).toHaveBeenCalledWith({
         notebookId: first.id,
         title: "Interview notes",
+        kind: "pasted_text",
         content: "First paragraph.\n\nSecond paragraph.",
       }),
     );

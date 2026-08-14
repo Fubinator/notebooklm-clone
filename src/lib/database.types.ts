@@ -198,6 +198,7 @@ export type Database = {
           license_name: string;
           license_url: string;
           content: string;
+          storage_path: string | null;
           processing_stage: ProcessingStage;
           embedding_provider: string;
           embedding_model: string;
@@ -221,6 +222,7 @@ export type Database = {
           license_name: string;
           license_url: string;
           content: string;
+          storage_path?: string | null;
           processing_stage?: ProcessingStage;
           embedding_provider: string;
           embedding_model: string;

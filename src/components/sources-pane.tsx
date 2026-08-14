@@ -109,7 +109,7 @@ export function SourcesPane({
           <div className="rounded-xl border border-[var(--line)] bg-white/70 p-3 text-[11px] leading-4 text-[var(--muted)]">
             {notebook.is_example
               ? "Shared with every Guest · Content and Passages are immutable"
-              : "Up to 5 Sources · Pasted text up to 50,000 characters"}
+              : "Up to 5 Sources · PDF up to 10 MB / 50 pages · Text up to 50,000 characters"}
           </div>
         ) : null}
       </div>
@@ -225,6 +225,11 @@ function SourceListState({
                   {source.passages.length} Passages ·{" "}
                   {source.kind === "pasted_text" ? "Pasted text" : "PDF"}
                 </span>
+                {source.processing_stage === "failed" ? (
+                  <span className="mt-1 block text-[10px] leading-4 text-[var(--danger)]">
+                    {failureLabel(source.failure_category)}
+                  </span>
+                ) : null}
               </span>
             </span>
           </button>
@@ -241,6 +246,26 @@ function SourceListState({
         </div>
       ))}
     </div>
+  );
+}
+
+function failureLabel(category: string | null) {
+  return (
+    (
+      {
+        pdf_type_unsupported: "The stored file is not a genuine PDF.",
+        pdf_content_empty:
+          "No readable text was found. Scanned PDFs are not supported.",
+        pdf_encrypted: "Remove the PDF password, then upload it again.",
+        pdf_unreadable: "The PDF is damaged or unreadable.",
+        pdf_page_limit: "The PDF exceeds the 50-page limit.",
+        pdf_storage_missing: "The original PDF is unavailable.",
+        embedding_provider_not_configured:
+          "Question indexing is not configured.",
+        embedding_provider_request_failed:
+          "Question indexing is temporarily unavailable.",
+      } as Record<string, string>
+    )[category ?? ""] ?? "Processing did not finish. Retry this stage."
   );
 }
 

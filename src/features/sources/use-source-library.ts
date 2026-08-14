@@ -98,7 +98,11 @@ export function useSourceLibrary({
     status: visibleStatus,
     select: setSelectedId,
     retry: load,
-    async create(input: { title: string; content: string }) {
+    async create(
+      input:
+        | { title: string; kind: "pasted_text"; content: string }
+        | { title: string; kind: "pdf"; file: File },
+    ) {
       if (!notebookId) return;
       await repository.create({ notebookId, ...input });
       await load();
