@@ -1,4 +1,5 @@
 import { createChatModel } from "@/features/answering/chat";
+import { ChatProviderRequestError } from "@/features/answering/cloudflare-chat";
 import { answerGroundedQuestion } from "@/features/answering/grounded-answering";
 import { createAnsweringPersistence } from "@/features/answering/persistence";
 import { retrieveEvidence } from "@/features/answering/retrieval";
@@ -72,6 +73,14 @@ export async function POST(request: Request) {
         notebookId: body.notebookId,
         outcome: "failed",
         category: safeErrorCategory(message),
+        ...(error instanceof ChatProviderRequestError
+          ? {
+              providerStatus: error.status,
+              ...(error.providerCode === null
+                ? {}
+                : { providerCode: error.providerCode }),
+            }
+          : {}),
       }),
     );
 

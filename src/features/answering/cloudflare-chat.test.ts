@@ -21,7 +21,7 @@ const input: ChatModelRequest = {
 };
 
 describe("Cloudflare chat adapter", () => {
-  it("requests a constrained JSON response without exposing credentials in content", async () => {
+  it("requests JSON output without exposing credentials in content", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -57,11 +57,34 @@ describe("Cloudflare chat adapter", () => {
     );
     const options = request.mock.calls[0]?.[1];
     const body = JSON.parse(String(options?.body)) as {
-      response_format: { json_schema: { properties: Record<string, unknown> } };
+      response_format: Record<string, unknown>;
     };
-    expect(body.response_format.json_schema.properties).toHaveProperty(
-      "citation_ids",
-    );
+    expect(body.response_format).toEqual({ type: "json_object" });
     expect(String(options?.body)).not.toContain("secret-token");
+  });
+
+  it("preserves safe Cloudflare status and error-code diagnostics", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: false,
+          errors: [{ code: 5007, message: "No such model" }],
+        }),
+        { status: 400 },
+      ),
+    );
+
+    const failure = generateWithCloudflare(
+      input,
+      { accountId: "account-id", apiToken: "secret-token" },
+      "@cf/example/model",
+      request,
+    );
+
+    await expect(failure).rejects.toMatchObject({
+      message: "chat_provider_request_failed",
+      status: 400,
+      providerCode: 5007,
+    });
   });
 });

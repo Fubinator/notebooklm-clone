@@ -12,7 +12,20 @@ export type CloudflareChatCredentials = {
 type CloudflareChatResponse = {
   success?: boolean;
   result?: { response?: unknown };
+  errors?: Array<{ code?: unknown }>;
 };
+
+export class ChatProviderRequestError extends Error {
+  readonly status: number;
+  readonly providerCode: number | null;
+
+  constructor(status: number, providerCode: number | null) {
+    super("chat_provider_request_failed");
+    this.name = "ChatProviderRequestError";
+    this.status = status;
+    this.providerCode = providerCode;
+  }
+}
 
 export async function generateWithCloudflare(
   input: ChatModelRequest,
@@ -20,7 +33,6 @@ export async function generateWithCloudflare(
   model = DEFAULT_CLOUDFLARE_CHAT_MODEL,
   request: typeof fetch = fetch,
 ) {
-  const evidenceIds = input.evidence.map(({ passageId }) => passageId);
   const response = await request(
     `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credentials.accountId)}/ai/run/${model}`,
     {
@@ -33,30 +45,17 @@ export async function generateWithCloudflare(
         messages: buildGroundedMessages(input),
         temperature: 0.1,
         max_tokens: 900,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              answer: { type: "string" },
-              citation_ids: {
-                type: "array",
-                minItems: 1,
-                uniqueItems: true,
-                items: { type: "string", enum: evidenceIds },
-              },
-            },
-            required: ["answer", "citation_ids"],
-          },
-        },
+        response_format: { type: "json_object" },
       }),
       signal: AbortSignal.timeout(30_000),
     },
   );
 
   if (!response.ok) {
-    throw new Error(`chat_provider_request_failed:${response.status}`);
+    throw new ChatProviderRequestError(
+      response.status,
+      await readProviderErrorCode(response),
+    );
   }
 
   const payload = (await response.json()) as CloudflareChatResponse;
@@ -65,4 +64,12 @@ export async function generateWithCloudflare(
   }
 
   return payload.result.response;
+}
+
+async function readProviderErrorCode(response: Response) {
+  const payload = (await response
+    .json()
+    .catch(() => null)) as CloudflareChatResponse | null;
+  const code = payload?.errors?.[0]?.code;
+  return typeof code === "number" && Number.isSafeInteger(code) ? code : null;
 }
