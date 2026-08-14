@@ -66,8 +66,10 @@ const exampleSource: ReadableSource = {
   license_url: "https://www.nist.gov/open/copyright",
   content: "Readable source content",
   processing_stage: "ready",
-  embedding_model: "sentence-transformers/all-MiniLM-L6-v2",
+  embedding_provider: "cloudflare-workers-ai",
+  embedding_model: "@cf/baai/bge-small-en-v1.5",
   embedding_dimensions: 384,
+  embedding_pooling: "cls",
   created_at: "2026-08-13T10:00:00.000Z",
   passages: [
     {

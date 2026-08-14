@@ -26,14 +26,18 @@ create table public.sources (
   license_url text not null,
   content text not null,
   processing_stage text not null default 'ready',
+  embedding_provider text not null,
   embedding_model text not null,
   embedding_dimensions integer not null,
+  embedding_pooling text not null,
   created_at timestamptz not null default timezone('utc', now()),
   constraint sources_kind check (kind in ('pdf', 'pasted_text')),
   constraint sources_ready_seed check (processing_stage = 'ready'),
   constraint sources_embedding_configuration check (
-    embedding_model = 'sentence-transformers/all-MiniLM-L6-v2'
+    embedding_provider = 'cloudflare-workers-ai'
+    and embedding_model = '@cf/baai/bge-small-en-v1.5'
     and embedding_dimensions = 384
+    and embedding_pooling = 'cls'
   ),
   constraint sources_content_present check (char_length(btrim(content)) > 0)
 );

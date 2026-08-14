@@ -48,8 +48,10 @@ export type Database = {
           license_url: string;
           content: string;
           processing_stage: "ready";
+          embedding_provider: string;
           embedding_model: string;
           embedding_dimensions: number;
+          embedding_pooling: string;
           created_at: string;
         };
         Insert: {
@@ -63,8 +65,10 @@ export type Database = {
           license_url: string;
           content: string;
           processing_stage?: "ready";
+          embedding_provider: string;
           embedding_model: string;
           embedding_dimensions: number;
+          embedding_pooling: string;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["sources"]["Insert"]>;

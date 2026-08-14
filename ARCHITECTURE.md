@@ -16,7 +16,7 @@ Canonical product terms are defined in [CONTEXT.md](./CONTEXT.md). Product commi
 | Database, authentication, and file storage | Supabase |
 | Retrieval | Postgres with pgvector |
 | Deployment gate | Vercel-protected preview shared through a private shareable link |
-| Generation and embeddings | Environment-configured providers, selected during setup |
+| Generation and embeddings | Cloudflare Workers AI for embeddings; chat provider selected during setup |
 
 The private Vercel link is the reviewer's access credential. It is not a substitute for application quotas, database authorization, or provider-level budget ceilings.
 
@@ -269,7 +269,7 @@ Automation that exercises a protected Vercel deployment uses a dedicated deploym
 | Trust model | Validated Passage Citations and insufficient-evidence behavior |
 | Data access | Browser CRUD under RLS; privileged and AI work server-only |
 | Observability | Structured, content-free logs in existing platform dashboards |
-| Embedding provider | Hugging Face Inference with `sentence-transformers/all-MiniLM-L6-v2`, normalized 384-dimension vectors |
+| Embedding provider | Cloudflare Workers AI with `@cf/baai/bge-small-en-v1.5`, 384 dimensions, and `cls` pooling |
 | Example Sources | Attributed excerpts from NIST AI 100-1 and NIST AI 600-1 under NIST Technical Series reuse terms |
 
 These are recorded here rather than as ADRs because the application has not yet been implemented and the choices remain inexpensive to revisit.
