@@ -13,9 +13,7 @@ export const {
   pooling: POOLING,
 } = CLOUDFLARE_EMBEDDING;
 
-const OUTPUT_PATH = fileURLToPath(
-  new URL("../supabase/seed.sql", import.meta.url),
-);
+const OUTPUT_URL = new URL("../supabase/seed.sql", import.meta.url);
 const REUSE_TERMS =
   "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications";
 
@@ -94,17 +92,18 @@ if (
     { accountId, apiToken },
   );
   const sql = renderSeed(embeddings);
-  const temporaryPath = `${OUTPUT_PATH}.${process.pid}.tmp`;
+  const outputPath = fileURLToPath(OUTPUT_URL);
+  const temporaryPath = `${outputPath}.${process.pid}.tmp`;
 
   try {
     await writeFile(temporaryPath, sql, "utf8");
-    await rename(temporaryPath, OUTPUT_PATH);
+    await rename(temporaryPath, outputPath);
   } catch (error) {
     await unlink(temporaryPath).catch(() => undefined);
     throw error;
   }
 
-  process.stdout.write(`Wrote ${OUTPUT_PATH}\n`);
+  process.stdout.write(`Wrote ${outputPath}\n`);
 }
 
 export function renderSeed(embeddings) {
