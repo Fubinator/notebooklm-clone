@@ -323,6 +323,42 @@ describe("Notebook workspace", () => {
     consoleError.mockRestore();
   });
 
+  it("keeps Source rows visible while processing refreshes in the background", async () => {
+    let finishRefresh: (sources: ReadableSource[]) => void = () => undefined;
+    const processingSource: ReadableSource = {
+      ...exampleSource,
+      notebook_id: first.id,
+      processing_stage: "uploaded",
+      passages: [],
+    };
+    mocks.sourceList
+      .mockResolvedValueOnce([processingSource])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRefresh = resolve;
+          }),
+      );
+
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    const sourceButton = await screen.findByRole("button", {
+      name: `Preview ${processingSource.title}`,
+    });
+    await waitFor(() => expect(mocks.sourceAdvance).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.sourceList).toHaveBeenCalledTimes(2));
+
+    expect(sourceButton).toBeInTheDocument();
+    expect(screen.queryByText("Loading Sources…")).not.toBeInTheDocument();
+
+    finishRefresh([{ ...processingSource, processing_stage: "ready" }]);
+  });
+
   it("restores a private grounded Answer and opens its exact Citation", async () => {
     const pastedSource: ReadableSource = {
       ...exampleSource,

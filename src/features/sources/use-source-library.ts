@@ -23,30 +23,34 @@ export function useSourceLibrary({
   const requestId = useRef(0);
   const advancing = useRef(new Set<string>());
 
-  const load = useCallback(async () => {
-    const currentRequest = ++requestId.current;
-    setSelectedId(undefined);
+  const load = useCallback(
+    async (options?: { preserveSources?: boolean }) => {
+      const currentRequest = ++requestId.current;
+      const preserveSources = options?.preserveSources ?? false;
+      if (!preserveSources) setSelectedId(undefined);
 
-    if (!notebookId) {
-      setSources([]);
-      setLoadedNotebookId(undefined);
-      setStatus("empty");
-      return;
-    }
+      if (!notebookId) {
+        setSources([]);
+        setLoadedNotebookId(undefined);
+        setStatus("empty");
+        return;
+      }
 
-    setSources([]);
-    setLoadedNotebookId(notebookId);
-    setStatus("loading");
-    try {
-      const loaded = await repository.list(notebookId);
-      if (requestId.current !== currentRequest) return;
-      setSources(loaded);
-      setStatus("ready");
-    } catch {
-      if (requestId.current !== currentRequest) return;
-      setStatus("error");
-    }
-  }, [notebookId, repository]);
+      if (!preserveSources) setSources([]);
+      setLoadedNotebookId(notebookId);
+      if (!preserveSources) setStatus("loading");
+      try {
+        const loaded = await repository.list(notebookId);
+        if (requestId.current !== currentRequest) return;
+        setSources(loaded);
+        setStatus("ready");
+      } catch {
+        if (requestId.current !== currentRequest) return;
+        setStatus("error");
+      }
+    },
+    [notebookId, repository],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +69,7 @@ export function useSourceLibrary({
       advancing.current.add(sourceId);
       try {
         await repository.advance(sourceId);
-        await load();
+        await load({ preserveSources: true });
       } finally {
         advancing.current.delete(sourceId);
       }
@@ -105,7 +109,7 @@ export function useSourceLibrary({
     ) {
       if (!notebookId) return;
       await repository.create({ notebookId, ...input });
-      await load();
+      await load({ preserveSources: true });
     },
     process,
   };
