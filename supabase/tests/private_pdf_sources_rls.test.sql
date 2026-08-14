@@ -13,8 +13,15 @@ values
   ('abababab-abab-4bab-8bab-abababababab', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', true),
   ('cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', true);
 
+set local role authenticated;
+set local request.jwt.claims =
+  '{"sub":"abababab-abab-4bab-8bab-abababababab","role":"authenticated","is_anonymous":true}';
+set local request.jwt.claim.sub = 'abababab-abab-4bab-8bab-abababababab';
+
 insert into public.notebooks (id, owner_id, title)
 values ('60000000-0000-4000-8000-000000000001', 'abababab-abab-4bab-8bab-abababababab', 'Private PDF research');
+
+reset role;
 
 insert into public.sources (
   id, notebook_id, title, kind, attribution, license_name, license_url, content,
@@ -40,7 +47,7 @@ select throws_ok(
     )
   $$,
   '23514',
-  null,
+  'new row for relation "sources" violates check constraint "sources_pdf_storage"',
   'A private uploaded PDF still requires a Storage path'
 );
 
