@@ -16,7 +16,7 @@ Canonical product terms are defined in [CONTEXT.md](./CONTEXT.md). Product commi
 | Database, authentication, and file storage | Supabase |
 | Retrieval | Postgres with pgvector |
 | Deployment gate | Vercel-protected preview shared through a private shareable link |
-| Generation and embeddings | Cloudflare Workers AI for embeddings; chat provider selected during setup |
+| Generation and embeddings | Cloudflare Workers AI for embeddings; Answer generation provider selected during setup |
 
 The private Vercel link is the reviewer's access credential. It is not a substitute for application quotas, database authorization, or provider-level budget ceilings.
 
@@ -28,7 +28,7 @@ flowchart LR
     V --> N[Next.js application]
     N -->|anonymous session and user CRUD| S[Supabase Auth and Postgres]
     N -->|private PDFs| O[Supabase Storage]
-    N -->|chat and embedding calls| M[Model providers]
+    N -->|Answer generation and embedding calls| M[Model providers]
     S -->|notebook-filtered similarity search| N
     O -->|source bytes for extraction| N
 ```
@@ -118,7 +118,7 @@ The design avoids generic pass-through wrappers around Supabase. Modules are int
 
 Two small deployment-time interfaces isolate real variation:
 
-- A chat-model adapter streams text and structured Citation identifiers.
+- An Answer-model adapter streams text and structured Citation identifiers.
 - An embedding-model adapter maps text to a fixed-dimension vector.
 
 Only one configured adapter for each interface ships in the committed deployment. There is no runtime provider selector or multi-provider product surface.
@@ -280,7 +280,7 @@ These unknowns must not expand the committed product scope.
 
 | Decision | Owner | Resolve by | Acceptance test | Fallback |
 | --- | --- | --- | --- | --- |
-| Chat provider, model, and response contract | Candidate | Initial setup, before Grounded Answering | Streams or returns a grounded response and emits machine-readable Passage IDs using server-held credentials | Select one inexpensive, supported chat provider and implement its single adapter |
+| Answer generation provider, model, and response contract | Candidate | Initial setup, before Grounded Answering | Streams or returns a grounded response and emits machine-readable Passage IDs using server-held credentials | Select one inexpensive, supported Answer model and implement its single adapter |
 | PDF extraction library | Builder | Narrow ingestion spike | Extracts representative text PDFs, preserves page numbers, rejects empty/encrypted failures safely, and works in Vercel's runtime | Select the next small server-compatible parser that passes the same contract tests |
 | Passage size and overlap | Builder | Retrieval spike | Five-Question fixture retrieves expected Passages without excessive prompt volume | Start with conservative fixed-size overlapping Passages and tune only against the fixture |
 | Retrieval result count and adequacy threshold | Builder | Retrieval spike | Expected evidence appears within the returned set and unrelated Questions trigger insufficient evidence | Keep values server-configurable and favor refusing over unsupported Answers |

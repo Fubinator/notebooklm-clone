@@ -6,7 +6,7 @@ export type Passage = Database["public"]["Tables"]["passages"]["Row"];
 export type ReadablePassage = Omit<Passage, "embedding">;
 export type ReadableSource = Source & { passages: ReadablePassage[] };
 
-export function sortSources(sources: ReadableSource[]) {
+export function normalizeSourcePassages(sources: ReadableSource[]) {
   return [...sources].map((source) => ({
     ...source,
     passages: [...source.passages].sort(

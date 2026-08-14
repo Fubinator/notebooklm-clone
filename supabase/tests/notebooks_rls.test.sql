@@ -1,6 +1,6 @@
 begin;
 
-select plan(21);
+select plan(26);
 
 insert into auth.users (id, instance_id, aud, role, is_anonymous)
 values
@@ -146,6 +146,41 @@ select throws_ok(
   '42501',
   'permission denied for table sources',
   'Guests cannot update Example Sources'
+);
+
+select throws_ok(
+  $$delete from public.sources where notebook_id = '00000000-0000-4000-8000-000000000003'$$,
+  '42501',
+  'permission denied for table sources',
+  'Guests cannot delete Example Sources'
+);
+
+select throws_ok(
+  $$insert into public.passages (source_id, ordinal, content, page_number) values ('00000000-0000-4000-8000-000000000031', 99, 'Injected', 1)$$,
+  '42501',
+  'permission denied for table passages',
+  'Guests cannot create Example Passages'
+);
+
+select throws_ok(
+  $$update public.passages set content = 'Changed Passage' where source_id = '00000000-0000-4000-8000-000000000031'$$,
+  '42501',
+  'permission denied for table passages',
+  'Guests cannot update Example Passages'
+);
+
+select throws_ok(
+  $$delete from public.passages where source_id = '00000000-0000-4000-8000-000000000031'$$,
+  '42501',
+  'permission denied for table passages',
+  'Guests cannot delete Example Passages'
+);
+
+select throws_ok(
+  $$insert into public.notebooks (owner_id, is_example, title) values (null, true, 'Injected Example')$$,
+  '42501',
+  'notebook_owner_mismatch',
+  'Guests cannot create another Example Notebook'
 );
 
 select lives_ok(

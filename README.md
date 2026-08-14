@@ -37,13 +37,13 @@ Private Source ingestion, grounded Answers, Citations, and Notes belong to later
 ### Prerequisites
 
 - Node.js 24+
-- npm 11+
+- pnpm 10.33+
 - A Supabase project, or Docker and the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) for local services
 
 ### 1. Install dependencies
 
 ```bash
-npm ci
+pnpm install --frozen-lockfile
 ```
 
 ### 2. Configure Supabase
@@ -88,7 +88,7 @@ The configured embedding provider is Cloudflare Workers AI using `@cf/baai/bge-s
 The committed Example seed already contains its vectors, so Cloudflare is not called while browsing the Example Notebook. To deliberately regenerate those vectors after changing the fixture text or embedding configuration, run:
 
 ```bash
-npm run seed:example
+pnpm seed:example
 ```
 
 The command loads `.env.local`, validates all six Cloudflare vectors, and only then replaces `supabase/seed.sql`.
@@ -100,7 +100,7 @@ The Example Passages include committed Cloudflare-generated fixture vectors so l
 ### 3. Run the application
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). A fresh browser creates a Guest automatically; refreshing restores that Guest from the Supabase SSR cookies.
@@ -110,11 +110,11 @@ Open [http://localhost:3000](http://localhost:3000). A fresh browser creates a G
 Run the application checks:
 
 ```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm test
-npm run build
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
 With the local Supabase stack running, verify database authorization:

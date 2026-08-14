@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 
-import { sortSources, type ReadableSource } from "./model";
+import { normalizeSourcePassages, type ReadableSource } from "./model";
 
 export type SourceRepository = {
   list(notebookId: string): Promise<ReadableSource[]>;
@@ -20,7 +20,7 @@ export function createSourceRepository(): SourceRepository {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      return sortSources(data ?? []);
+      return normalizeSourcePassages(data ?? []);
     },
   };
 }
