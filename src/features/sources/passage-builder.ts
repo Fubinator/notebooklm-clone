@@ -8,6 +8,7 @@ export type BuiltPassage = {
   content: string;
   paragraphStart: number;
   paragraphEnd: number;
+  pageNumber?: number;
 };
 
 export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
@@ -38,4 +39,28 @@ export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
   }
 
   return passages;
+}
+
+export function buildPdfPassages(
+  pages: Array<{ page: number; content: string }>,
+): BuiltPassage[] {
+  const passages: BuiltPassage[] = [];
+  for (const page of pages) {
+    for (
+      let start = 0;
+      start < page.content.length;
+      start += PASSAGE_TARGET_CHARACTERS
+    ) {
+      passages.push({
+        ordinal: passages.length,
+        content: page.content
+          .slice(start, start + PASSAGE_TARGET_CHARACTERS)
+          .trim(),
+        paragraphStart: 0,
+        paragraphEnd: 0,
+        pageNumber: page.page,
+      });
+    }
+  }
+  return passages.filter(({ content }) => Boolean(content));
 }

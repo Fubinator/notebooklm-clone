@@ -13,6 +13,8 @@ function source(
   return {
     id: "source",
     content: "First paragraph.\n\nSecond paragraph.",
+    kind: "pasted_text",
+    storagePath: null,
     processingStage,
     retryStage: null,
     attemptCount: 0,
@@ -30,6 +32,10 @@ function persistence(current: IngestionSource) {
   }> = [];
   const mock: SourceIngestionPersistence = {
     load: vi.fn(async () => current),
+    loadOriginal: vi.fn(async () => new Uint8Array()),
+    saveExtractedContent: vi.fn(async (_id, content) => {
+      current = { ...current, content };
+    }),
     transition: vi.fn(
       async (_id, _from, to) =>
         (current = { ...current, processingStage: to, retryStage: null }),

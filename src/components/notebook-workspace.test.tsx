@@ -94,6 +94,7 @@ const exampleSource: ReadableSource = {
   license_name: "NIST Technical Series reuse terms",
   license_url: "https://www.nist.gov/open/copyright",
   content: "Readable source content",
+  storage_path: null,
   processing_stage: "ready",
   embedding_provider: "cloudflare-workers-ai",
   embedding_model: "@cf/baai/bge-small-en-v1.5",
@@ -291,9 +292,71 @@ describe("Notebook workspace", () => {
       expect(mocks.sourceCreate).toHaveBeenCalledWith({
         notebookId: first.id,
         title: "Interview notes",
+        kind: "pasted_text",
         content: "First paragraph.\n\nSecond paragraph.",
       }),
     );
+  });
+
+  it("switches to PDF upload without changing a controlled input to uncontrolled", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDF" }));
+
+    expect(screen.getByLabelText("Source title")).toBeInTheDocument();
+    expect(screen.getByLabelText("PDF file")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pasted text")).not.toBeInTheDocument();
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining(
+        "A component is changing a controlled input to be uncontrolled",
+      ),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("keeps Source rows visible while processing refreshes in the background", async () => {
+    let finishRefresh: (sources: ReadableSource[]) => void = () => undefined;
+    const processingSource: ReadableSource = {
+      ...exampleSource,
+      notebook_id: first.id,
+      processing_stage: "uploaded",
+      passages: [],
+    };
+    mocks.sourceList
+      .mockResolvedValueOnce([processingSource])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRefresh = resolve;
+          }),
+      );
+
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    const sourceButton = await screen.findByRole("button", {
+      name: `Preview ${processingSource.title}`,
+    });
+    await waitFor(() => expect(mocks.sourceAdvance).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.sourceList).toHaveBeenCalledTimes(2));
+
+    expect(sourceButton).toBeInTheDocument();
+    expect(screen.queryByText("Loading Sources…")).not.toBeInTheDocument();
+
+    finishRefresh([{ ...processingSource, processing_stage: "ready" }]);
   });
 
   it("restores a private grounded Answer and opens its exact Citation", async () => {
