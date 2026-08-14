@@ -17,9 +17,14 @@ import {
   StudioPane,
   WorkspacePanelTabs,
 } from "@/components/workspace-panes";
+import type { Citation } from "@/features/conversations/model";
+import { createConversationRepository } from "@/features/conversations/repository";
+import { useConversation } from "@/features/conversations/use-conversation";
 import type { Notebook } from "@/features/notebooks/model";
 import { createNotebookRepository } from "@/features/notebooks/repository";
 import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspace";
+import { createSourceRepository } from "@/features/sources/repository";
+import { useSourceLibrary } from "@/features/sources/use-source-library";
 
 type WorkspaceProps = {
   guestId: string;
@@ -36,6 +41,11 @@ export function NotebookWorkspace({
 }: WorkspaceProps) {
   const router = useRouter();
   const repository = useMemo(() => createNotebookRepository(), []);
+  const sourceRepository = useMemo(() => createSourceRepository(), []);
+  const conversationRepository = useMemo(
+    () => createConversationRepository(),
+    [],
+  );
   const navigate = useCallback(
     (notebookId?: string) =>
       router.replace(notebookId ? `/?notebook=${notebookId}` : "/", {
@@ -50,8 +60,17 @@ export function NotebookWorkspace({
     repository,
     navigate,
   });
+  const sourceLibrary = useSourceLibrary({
+    notebookId: workspace.activeNotebook?.id,
+    repository: sourceRepository,
+  });
+  const conversation = useConversation({
+    notebookId: workspace.activeNotebook?.id,
+    repository: conversationRepository,
+  });
 
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversation");
+  const [selectedCitation, setSelectedCitation] = useState<Citation>();
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Notebook>();
   const [deleteTarget, setDeleteTarget] = useState<Notebook>();
@@ -88,6 +107,7 @@ export function NotebookWorkspace({
 
     setCreateOpen(false);
     setTitle("");
+    setSelectedCitation(undefined);
     setMobilePanel("conversation");
   }
 
@@ -112,6 +132,7 @@ export function NotebookWorkspace({
     }
 
     setDeleteTarget(undefined);
+    setSelectedCitation(undefined);
   }
 
   return (
@@ -123,6 +144,7 @@ export function NotebookWorkspace({
         atLimit={workspace.atLimit}
         onSelect={(id) => {
           workspace.select(id);
+          setSelectedCitation(undefined);
           setMobilePanel("conversation");
         }}
         onCreate={openCreate}
@@ -135,14 +157,44 @@ export function NotebookWorkspace({
       <div className="grid min-h-0 flex-1 lg:grid-cols-[286px_minmax(360px,1fr)_318px]">
         <SourcesPane
           visible={mobilePanel === "sources"}
-          hasNotebook={Boolean(workspace.activeNotebook)}
+          notebook={workspace.activeNotebook}
+          sources={sourceLibrary.sources}
+          status={sourceLibrary.status}
+          selectedSourceId={sourceLibrary.selectedId}
+          onSelect={(sourceId) => {
+            sourceLibrary.select(sourceId);
+            setMobilePanel("conversation");
+          }}
+          onRetry={() => void sourceLibrary.retry()}
         />
         <ConversationPane
           visible={mobilePanel === "conversation"}
           notebook={workspace.activeNotebook}
+          source={sourceLibrary.selectedSource}
+          messages={conversation.messages}
+          status={conversation.status}
+          pendingQuestion={conversation.pendingQuestion}
+          error={conversation.error}
+          canAsk={
+            sourceLibrary.status === "ready" &&
+            sourceLibrary.sources.some(
+              ({ processing_stage }) => processing_stage === "ready",
+            )
+          }
+          onCloseSource={() => sourceLibrary.select(undefined)}
           onCreate={openCreate}
+          onAsk={conversation.ask}
+          onRetry={() => void conversation.retry()}
+          onCitation={(citation) => {
+            setSelectedCitation(citation);
+            setMobilePanel("studio");
+          }}
         />
-        <StudioPane visible={mobilePanel === "studio"} />
+        <StudioPane
+          visible={mobilePanel === "studio"}
+          citation={selectedCitation}
+          onCloseCitation={() => setSelectedCitation(undefined)}
+        />
       </div>
 
       <CreateNotebookDialog

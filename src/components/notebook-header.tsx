@@ -43,6 +43,9 @@ export function NotebookHeader({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const exampleNotebook = notebooks.find(({ is_example }) => is_example);
+  const privateNotebooks = notebooks.filter(({ is_example }) => !is_example);
+
   return (
     <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-[var(--line)] px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -62,7 +65,9 @@ export function NotebookHeader({
                   {activeNotebook?.title ?? "Your Notebooks"}
                 </span>
                 <span className="hidden text-[11px] text-[var(--muted-light)] sm:block">
-                  {notebooks.length}/{NOTEBOOK_LIMIT} private
+                  {activeNotebook?.is_example
+                    ? "Example · read-only"
+                    : `${privateNotebooks.length}/${NOTEBOOK_LIMIT} private`}
                 </span>
               </span>
               <ChevronDown className="size-3.5 shrink-0 text-[var(--muted)]" />
@@ -72,28 +77,30 @@ export function NotebookHeader({
             <div className="px-3 py-2">
               <p className="eyebrow">Notebooks</p>
             </div>
-            {notebooks.length ? (
-              notebooks.map((notebook) => (
-                <DropdownMenuItem
+            {exampleNotebook ? (
+              <>
+                <p className="px-3 pt-1 pb-1 text-[10px] font-bold tracking-wide text-[var(--muted-light)] uppercase">
+                  Shared example
+                </p>
+                <NotebookMenuItem
+                  notebook={exampleNotebook}
+                  active={activeNotebook?.id === exampleNotebook.id}
+                  onSelect={onSelect}
+                />
+                <div className="my-1 h-px bg-[var(--line)]" />
+              </>
+            ) : null}
+            <p className="px-3 pt-1 pb-1 text-[10px] font-bold tracking-wide text-[var(--muted-light)] uppercase">
+              Your Notebooks
+            </p>
+            {privateNotebooks.length ? (
+              privateNotebooks.map((notebook) => (
+                <NotebookMenuItem
                   key={notebook.id}
-                  className="justify-between"
-                  onSelect={() => onSelect(notebook.id)}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold">
-                      {notebook.title}
-                    </span>
-                    <span className="block text-[10px] text-[var(--muted-light)]">
-                      {formatUpdatedAt(notebook.updated_at)}
-                    </span>
-                  </span>
-                  <Check
-                    className={cn(
-                      "size-4 shrink-0 text-[var(--accent-strong)]",
-                      activeNotebook?.id !== notebook.id && "invisible",
-                    )}
-                  />
-                </DropdownMenuItem>
+                  notebook={notebook}
+                  active={activeNotebook?.id === notebook.id}
+                  onSelect={onSelect}
+                />
               ))
             ) : (
               <p className="px-3 py-3 text-xs leading-5 text-[var(--muted)]">
@@ -110,7 +117,7 @@ export function NotebookHeader({
                 </span>
               ) : null}
             </DropdownMenuItem>
-            {activeNotebook ? (
+            {activeNotebook && !activeNotebook.is_example ? (
               <>
                 <DropdownMenuItem onSelect={onRename}>
                   <Pencil className="size-3.5" /> Rename active Notebook
@@ -148,6 +155,38 @@ export function NotebookHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function NotebookMenuItem({
+  notebook,
+  active,
+  onSelect,
+}: {
+  notebook: Notebook;
+  active: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <DropdownMenuItem
+      className="justify-between"
+      onSelect={() => onSelect(notebook.id)}
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-semibold">{notebook.title}</span>
+        <span className="block text-[10px] text-[var(--muted-light)]">
+          {notebook.is_example
+            ? "Ready Sources for every Guest"
+            : formatUpdatedAt(notebook.updated_at)}
+        </span>
+      </span>
+      <Check
+        className={cn(
+          "size-4 shrink-0 text-[var(--accent-strong)]",
+          !active && "invisible",
+        )}
+      />
+    </DropdownMenuItem>
   );
 }
 

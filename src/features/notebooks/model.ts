@@ -30,11 +30,15 @@ export function canCreateNotebook(count: number) {
 }
 
 export function sortNotebooks(notebooks: Notebook[]) {
-  return [...notebooks].sort(
-    (left, right) =>
-      new Date(right.updated_at).getTime() -
-      new Date(left.updated_at).getTime(),
-  );
+  return [...notebooks].sort((left, right) => {
+    if (left.is_example !== right.is_example) {
+      return left.is_example ? -1 : 1;
+    }
+
+    return (
+      new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
+    );
+  });
 }
 
 export function displayGuestId(id: string) {

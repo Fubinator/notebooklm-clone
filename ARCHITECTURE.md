@@ -1,6 +1,6 @@
 # NotebookLM-Clone Architecture
 
-Status: planned; no application implementation exists yet
+Status: implemented through the grounded Question and Citation journey; private Source ingestion and Notes remain planned
 
 This architecture optimizes for a credible full-stack interview demonstration within a 15–20 hour delivery budget. It favors narrow interfaces, explicit ownership, recoverable processing, and inspectable grounding over production-scale infrastructure.
 
@@ -16,7 +16,7 @@ Canonical product terms are defined in [CONTEXT.md](./CONTEXT.md). Product commi
 | Database, authentication, and file storage | Supabase |
 | Retrieval | Postgres with pgvector |
 | Deployment gate | Vercel-protected preview shared through a private shareable link |
-| Generation and embeddings | Environment-configured providers, selected during setup |
+| Generation and embeddings | Cloudflare Workers AI for embeddings; Answer generation provider selected during setup |
 
 The private Vercel link is the reviewer's access credential. It is not a substitute for application quotas, database authorization, or provider-level budget ceilings.
 
@@ -28,7 +28,7 @@ flowchart LR
     V --> N[Next.js application]
     N -->|anonymous session and user CRUD| S[Supabase Auth and Postgres]
     N -->|private PDFs| O[Supabase Storage]
-    N -->|chat and embedding calls| M[Model providers]
+    N -->|Answer generation and embedding calls| M[Model providers]
     S -->|notebook-filtered similarity search| N
     O -->|source bytes for extraction| N
 ```
@@ -118,7 +118,7 @@ The design avoids generic pass-through wrappers around Supabase. Modules are int
 
 Two small deployment-time interfaces isolate real variation:
 
-- A chat-model adapter streams text and structured Citation identifiers.
+- An Answer-model adapter streams text and structured Citation identifiers.
 - An embedding-model adapter maps text to a fixed-dimension vector.
 
 Only one configured adapter for each interface ships in the committed deployment. There is no runtime provider selector or multi-provider product surface.
@@ -269,8 +269,13 @@ Automation that exercises a protected Vercel deployment uses a dedicated deploym
 | Trust model | Validated Passage Citations and insufficient-evidence behavior |
 | Data access | Browser CRUD under RLS; privileged and AI work server-only |
 | Observability | Structured, content-free logs in existing platform dashboards |
+| Embedding provider | Cloudflare Workers AI with `@cf/baai/bge-small-en-v1.5`, 384 dimensions, and `cls` pooling |
+| Answer provider | Cloudflare Workers AI JSON Mode with a server-selected model; default `@cf/meta/llama-3.1-8b-instruct-fast` |
+| Answer delivery | Buffered structured output so Citation validation finishes before any Answer is presented as complete |
+| Retrieval defaults | Five Passages with a `0.42` cosine-similarity floor, both server-configurable |
+| Example Sources | Attributed excerpts from NIST AI 100-1 and NIST AI 600-1 under NIST Technical Series reuse terms |
 
-These are recorded here rather than as ADRs because the application has not yet been implemented and the choices remain inexpensive to revisit.
+These are recorded here as the current shipped baseline; later provider or workflow changes should preserve the same Retrieval and Grounded Answering interfaces.
 
 ## Unresolved decisions
 
@@ -278,13 +283,9 @@ These unknowns must not expand the committed product scope.
 
 | Decision | Owner | Resolve by | Acceptance test | Fallback |
 | --- | --- | --- | --- | --- |
-| Chat provider, model, and response contract | Candidate | Initial setup, before Grounded Answering | Streams or returns a grounded response and emits machine-readable Passage IDs using server-held credentials | Select one inexpensive, supported chat provider and implement its single adapter |
-| Embedding provider, model, and dimension | Candidate | Initial setup, before vector schema migration | Produces stable vectors for Source Passages and Questions; fixture similarity ranks expected evidence | Provision one inexpensive embedding provider separate from chat |
 | PDF extraction library | Builder | Narrow ingestion spike | Extracts representative text PDFs, preserves page numbers, rejects empty/encrypted failures safely, and works in Vercel's runtime | Select the next small server-compatible parser that passes the same contract tests |
 | Passage size and overlap | Builder | Retrieval spike | Five-Question fixture retrieves expected Passages without excessive prompt volume | Start with conservative fixed-size overlapping Passages and tune only against the fixture |
-| Retrieval result count and adequacy threshold | Builder | Retrieval spike | Expected evidence appears within the returned set and unrelated Questions trigger insufficient evidence | Keep values server-configurable and favor refusing over unsupported Answers |
 | Global provider budget and daily deployment ceiling | Candidate | Before first shared deployment | Provider and application stop new model work at the chosen spend ceiling | Disable new Questions while leaving the Example Notebook readable |
-| Final Example Notebook Sources | Candidate | Before seed finalization | Two or three technically substantive Sources are legally reusable and support the prepared Questions | Author a small original research packet for the demo |
 
 ## References
 
@@ -292,5 +293,7 @@ These unknowns must not expand the committed product scope.
 - [Supabase Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase semantic search](https://supabase.com/docs/guides/ai/semantic-search)
 - [Supabase Storage access control](https://supabase.com/docs/guides/storage/security/access-control)
+- [Cloudflare Workers AI JSON Mode](https://developers.cloudflare.com/workers-ai/features/json-mode/)
+- [Cloudflare Workers AI REST API](https://developers.cloudflare.com/workers-ai/get-started/rest-api/)
 - [Vercel deployment protection](https://vercel.com/docs/deployment-protection)
 - [Vercel deployment-protection sharing](https://vercel.com/docs/deployments/sharing-deployments)

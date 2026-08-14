@@ -1,20 +1,29 @@
 "use client";
 
 import {
-  ArrowUp,
   BookOpen,
   FilePlus2,
   FileText,
-  Lightbulb,
+  LoaderCircle,
   MessageSquareText,
   PanelRight,
-  Search,
+  RefreshCw,
   Sparkles,
   StickyNote,
 } from "lucide-react";
 
+import { CitationInspector } from "@/components/citation-inspector";
+import { ConversationView } from "@/components/conversation-view";
 import { Button } from "@/components/ui/button";
+import { SourcePreview } from "@/components/source-preview";
+import type {
+  Citation,
+  ConversationMessage,
+} from "@/features/conversations/model";
+import type { ConversationLoadState } from "@/features/conversations/use-conversation";
 import type { Notebook } from "@/features/notebooks/model";
+import type { ReadableSource } from "@/features/sources/model";
+import type { SourceLoadState } from "@/features/sources/use-source-library";
 import { cn } from "@/lib/utils";
 
 export type MobilePanel = "sources" | "conversation" | "studio";
@@ -55,10 +64,20 @@ export function WorkspacePanelTabs({
 
 export function SourcesPane({
   visible,
-  hasNotebook,
+  notebook,
+  sources,
+  status,
+  selectedSourceId,
+  onSelect,
+  onRetry,
 }: {
   visible: boolean;
-  hasNotebook: boolean;
+  notebook?: Notebook;
+  sources: ReadableSource[];
+  status: SourceLoadState;
+  selectedSourceId?: string;
+  onSelect: (sourceId: string) => void;
+  onRetry: () => void;
 }) {
   return (
     <aside
@@ -74,31 +93,43 @@ export function SourcesPane({
           <h2 className="text-sm font-semibold">Sources</h2>
         </div>
         <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
-          0 / 5
+          {sources.length} / 5
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <Button className="w-full" disabled={!hasNotebook}>
-          <FilePlus2 className="size-4" /> Add Source
+        <Button
+          className="w-full"
+          disabled
+          aria-describedby={
+            notebook?.is_example ? "example-sources-read-only" : undefined
+          }
+        >
+          <FilePlus2 className="size-4" />
+          Add Source
         </Button>
-        <div className="grid min-h-0 flex-1 place-items-center px-3 text-center">
-          <div>
-            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-[var(--muted)] shadow-sm">
-              <FileText className="size-5" />
-            </span>
-            <p className="mt-4 text-sm font-semibold">
-              {hasNotebook ? "No Sources yet" : "Choose a Notebook"}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              {hasNotebook
-                ? "PDF and pasted-text Sources will collect here in the next slice."
-                : "Sources belong to the active Notebook."}
-            </p>
-          </div>
+        {notebook?.is_example ? (
+          <p
+            id="example-sources-read-only"
+            className="mt-2 px-1 text-xs leading-4 font-medium text-red-700"
+          >
+            Sources in the Example Notebook are read-only.
+          </p>
+        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto py-4">
+          <SourceListState
+            notebook={notebook}
+            sources={sources}
+            status={status}
+            selectedSourceId={selectedSourceId}
+            onSelect={onSelect}
+            onRetry={onRetry}
+          />
         </div>
-        {hasNotebook ? (
+        {notebook ? (
           <div className="rounded-xl border border-[var(--line)] bg-white/70 p-3 text-[11px] leading-4 text-[var(--muted)]">
-            Up to 5 Sources per Notebook · 10 MB per PDF
+            {notebook.is_example
+              ? "Shared with every Guest · Content and Passages are immutable"
+              : "Up to 5 Sources per Notebook · 10 MB per PDF"}
           </div>
         ) : null}
       </div>
@@ -109,11 +140,31 @@ export function SourcesPane({
 export function ConversationPane({
   visible,
   notebook,
+  source,
+  messages,
+  status,
+  pendingQuestion,
+  error,
+  canAsk,
+  onCloseSource,
   onCreate,
+  onAsk,
+  onRetry,
+  onCitation,
 }: {
   visible: boolean;
   notebook?: Notebook;
+  source?: ReadableSource;
+  messages: ConversationMessage[];
+  status: ConversationLoadState;
+  pendingQuestion?: string;
+  error?: string;
+  canAsk: boolean;
+  onCloseSource: () => void;
   onCreate: () => void;
+  onAsk: (question: string) => Promise<boolean>;
+  onRetry: () => void;
+  onCitation: (citation: Citation) => void;
 }) {
   return (
     <section
@@ -132,8 +183,21 @@ export function ConversationPane({
           Grounded in Sources
         </span>
       </div>
-      {notebook ? (
-        <ConversationEmpty notebook={notebook} />
+      {source ? (
+        <SourcePreview source={source} onClose={onCloseSource} />
+      ) : notebook ? (
+        <ConversationView
+          key={notebook.id}
+          notebook={notebook}
+          messages={messages}
+          status={status}
+          pendingQuestion={pendingQuestion}
+          error={error}
+          canAsk={canAsk}
+          onAsk={onAsk}
+          onRetry={onRetry}
+          onCitation={onCitation}
+        />
       ) : (
         <NoNotebook onCreate={onCreate} />
       )}
@@ -141,7 +205,15 @@ export function ConversationPane({
   );
 }
 
-export function StudioPane({ visible }: { visible: boolean }) {
+export function StudioPane({
+  visible,
+  citation,
+  onCloseCitation,
+}: {
+  visible: boolean;
+  citation?: Citation;
+  onCloseCitation: () => void;
+}) {
   return (
     <aside
       className={cn(
@@ -160,106 +232,171 @@ export function StudioPane({ visible }: { visible: boolean }) {
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <section className="rounded-2xl border border-[var(--line)] bg-white p-4 shadow-[0_1px_1px_rgba(24,38,31,.03)]">
-          <div className="flex items-start justify-between">
-            <span className="grid size-9 place-items-center rounded-xl bg-[var(--lavender)] text-[#5e5876]">
-              <BookOpen className="size-4" />
-            </span>
-            <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[var(--muted-light)] uppercase">
-              Soon
-            </span>
-          </div>
-          <h3 className="mt-4 font-serif text-lg font-semibold">
-            Notebook guide
-          </h3>
-          <p className="mt-1.5 text-xs leading-5 text-[var(--muted)]">
-            A concise overview will appear after your Sources are ready.
-          </p>
-          <div className="mt-4 space-y-2">
-            <div className="h-2 w-full rounded-full bg-[var(--paper-deep)]" />
-            <div className="h-2 w-4/5 rounded-full bg-[var(--paper-deep)]" />
-            <div className="h-2 w-3/5 rounded-full bg-[var(--paper-deep)]" />
-          </div>
-        </section>
-        <div className="my-5 flex items-center justify-between">
-          <p className="eyebrow">Notes</p>
-          <span className="text-[11px] font-semibold text-[var(--muted-light)]">
-            0 saved
-          </span>
-        </div>
-        <div className="rounded-2xl border border-dashed border-[var(--line-strong)] p-5 text-center">
-          <StickyNote className="mx-auto size-5 text-[var(--muted-light)]" />
-          <p className="mt-3 text-xs font-semibold">No Notes yet</p>
-          <p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
-            Saved Answers and inspected Passages will collect here.
-          </p>
-        </div>
+        {citation ? (
+          <CitationInspector citation={citation} onClose={onCloseCitation} />
+        ) : (
+          <StudioEmpty />
+        )}
       </div>
     </aside>
   );
 }
 
-function ConversationEmpty({ notebook }: { notebook: Notebook }) {
-  const suggestions = [
-    "What themes connect my Sources?",
-    "Summarize the strongest evidence",
-    "What should I investigate next?",
-  ];
-
+function StudioEmpty() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
-        <div className="w-full max-w-xl text-center">
-          <div className="relative mx-auto w-fit">
-            <span className="grid size-16 place-items-center rounded-[22px] bg-[var(--sage)] text-[var(--ink)]">
-              <Lightbulb className="size-6" strokeWidth={1.7} />
-            </span>
-            <span className="absolute -right-1 -bottom-1 size-4 rounded-full border-2 border-[var(--paper)] bg-[var(--accent)]" />
-          </div>
-          <p className="eyebrow mt-6">Ready for Sources</p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
-            Begin with what you know.
-          </h1>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[var(--muted)]">
-            <strong className="text-[var(--ink)]">{notebook.title}</strong> is
-            private and ready. Sources, grounded Answers, and validated
-            Citations will appear in this three-pane desk.
+    <>
+      <section className="rounded-2xl border border-[var(--line)] bg-white p-4 shadow-[0_1px_1px_rgba(24,38,31,.03)]">
+        <div className="flex items-start justify-between">
+          <span className="grid size-9 place-items-center rounded-xl bg-[var(--lavender)] text-[#5e5876]">
+            <BookOpen className="size-4" />
+          </span>
+          <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[var(--muted-light)] uppercase">
+            Soon
+          </span>
+        </div>
+        <h3 className="mt-4 font-serif text-lg font-semibold">
+          Notebook guide
+        </h3>
+        <p className="mt-1.5 text-xs leading-5 text-[var(--muted)]">
+          A concise overview will appear after your Sources are ready.
+        </p>
+        <div className="mt-4 space-y-2">
+          <div className="h-2 w-full rounded-full bg-[var(--paper-deep)]" />
+          <div className="h-2 w-4/5 rounded-full bg-[var(--paper-deep)]" />
+          <div className="h-2 w-3/5 rounded-full bg-[var(--paper-deep)]" />
+        </div>
+      </section>
+      <div className="my-5 flex items-center justify-between">
+        <p className="eyebrow">Notes</p>
+        <span className="text-[11px] font-semibold text-[var(--muted-light)]">
+          0 saved
+        </span>
+      </div>
+      <div className="rounded-2xl border border-dashed border-[var(--line-strong)] p-5 text-center">
+        <StickyNote className="mx-auto size-5 text-[var(--muted-light)]" />
+        <p className="mt-3 text-xs font-semibold">No Notes yet</p>
+        <p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
+          Open a Citation to inspect its exact supporting Passage.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function SourceListState({
+  notebook,
+  sources,
+  status,
+  selectedSourceId,
+  onSelect,
+  onRetry,
+}: {
+  notebook?: Notebook;
+  sources: ReadableSource[];
+  status: SourceLoadState;
+  selectedSourceId?: string;
+  onSelect: (sourceId: string) => void;
+  onRetry: () => void;
+}) {
+  if (!notebook) {
+    return (
+      <SourceEmpty
+        title="Choose a Notebook"
+        message="Sources belong to the active Notebook."
+      />
+    );
+  }
+
+  if (status === "loading") {
+    return (
+      <div
+        className="grid h-full min-h-48 place-items-center px-3 text-center"
+        role="status"
+      >
+        <div>
+          <LoaderCircle className="mx-auto size-5 animate-spin text-[var(--accent-strong)]" />
+          <p className="mt-3 text-sm font-semibold">Loading Sources…</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Opening the readable research material.
           </p>
-          <div className="mt-7 grid gap-2 sm:grid-cols-3">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                disabled
-                className="rounded-xl border border-[var(--line)] bg-white px-3 py-3 text-left text-xs leading-5 font-medium text-[var(--muted)] opacity-75"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
-      <div className="shrink-0 border-t border-[var(--line)] p-4 sm:p-5">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--line-strong)] bg-white p-2 shadow-[0_8px_28px_rgba(24,38,31,.06)]">
-          <div className="flex items-center gap-2">
-            <Search className="ml-2 size-4 shrink-0 text-[var(--muted-light)]" />
-            <input
-              disabled
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--muted-light)]"
-              placeholder="Add a Source before asking a Question"
-              aria-label="Ask a Question"
-            />
-            <button
-              disabled
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--line)] text-white"
-              aria-label="Submit Question"
-            >
-              <ArrowUp className="size-4" />
-            </button>
-          </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div
+        className="grid h-full min-h-48 place-items-center px-3 text-center"
+        role="alert"
+      >
+        <div>
+          <p className="text-sm font-semibold">Sources couldn’t load</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            Your Notebook is still available. Try loading its Sources again.
+          </p>
+          <Button
+            className="mt-4"
+            size="sm"
+            variant="secondary"
+            onClick={onRetry}
+          >
+            <RefreshCw className="size-3.5" /> Try again
+          </Button>
         </div>
-        <p className="mt-2 text-center text-[10px] text-[var(--muted-light)]">
-          Answers will use only ready Sources in this Notebook.
-        </p>
+      </div>
+    );
+  }
+
+  if (!sources.length) {
+    return (
+      <SourceEmpty
+        title="No Sources yet"
+        message="PDF and pasted-text Sources will collect here."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {sources.map((source) => (
+        <button
+          key={source.id}
+          className={cn(
+            "w-full rounded-xl border bg-white p-3 text-left transition-colors hover:border-[var(--line-strong)]",
+            selectedSourceId === source.id
+              ? "border-[var(--accent-strong)]"
+              : "border-[var(--line)]",
+          )}
+          onClick={() => onSelect(source.id)}
+          aria-label={`Preview ${source.title}`}
+        >
+          <span className="flex items-start gap-2.5">
+            <FileText className="mt-0.5 size-4 shrink-0 text-[var(--accent-strong)]" />
+            <span className="min-w-0">
+              <span className="block text-xs leading-5 font-semibold">
+                {source.title}
+              </span>
+              <span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
+                Ready · {source.passages.length} Passages · PDF
+              </span>
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SourceEmpty({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="grid h-full min-h-48 place-items-center px-3 text-center">
+      <div>
+        <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white text-[var(--muted)] shadow-sm">
+          <FileText className="size-5" />
+        </span>
+        <p className="mt-4 text-sm font-semibold">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{message}</p>
       </div>
     </div>
   );
