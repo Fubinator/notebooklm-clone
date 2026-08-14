@@ -1,0 +1,11 @@
+.next
+.agents
+coverage
+docs
+node_modules
+package-lock.json
+ARCHITECTURE.md
+CONTEXT.md
+DEMO.md
+PRODUCT.md
+skills-lock.json
