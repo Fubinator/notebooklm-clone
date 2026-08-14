@@ -16,6 +16,7 @@ export function WorkspacePanelTabs({
     <nav
       className="flex h-12 shrink-0 border-b border-[var(--line)] bg-white/70 lg:hidden"
       aria-label="Workspace panels"
+      role="tablist"
     >
       <MobileTab
         active={active === "sources"}
@@ -52,6 +53,8 @@ function MobileTab({
 }) {
   return (
     <button
+      role="tab"
+      aria-selected={active}
       className={cn(
         "relative flex flex-1 items-center justify-center gap-1.5 text-xs font-semibold text-[var(--muted)]",
         active &&

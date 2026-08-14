@@ -5,6 +5,7 @@ import {
   Lightbulb,
   LoaderCircle,
   RefreshCw,
+  Save,
   Search,
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -28,6 +29,9 @@ export function ConversationView({
   onAsk,
   onRetry,
   onCitation,
+  savedAnswerIds,
+  savingAnswerId,
+  onSaveAnswer,
 }: {
   notebook: Notebook;
   messages: ConversationMessage[];
@@ -38,6 +42,9 @@ export function ConversationView({
   onAsk: (question: string) => Promise<boolean>;
   onRetry: () => void;
   onCitation: (citation: Citation) => void;
+  savedAnswerIds: Set<string>;
+  savingAnswerId?: string;
+  onSaveAnswer: (answer: ConversationMessage, question: string) => void;
 }) {
   const [question, setQuestion] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -79,6 +86,14 @@ export function ConversationView({
                 key={message.id}
                 message={message}
                 onCitation={onCitation}
+                saved={savedAnswerIds.has(message.id)}
+                saving={savingAnswerId === message.id}
+                onSave={() => {
+                  const question = messages.find(
+                    ({ id }) => id === message.reply_to_message_id,
+                  )?.content;
+                  if (question) onSaveAnswer(message, question);
+                }}
               />
             ))}
             {pendingQuestion ? (
@@ -152,9 +167,15 @@ export function ConversationView({
 function MessageCard({
   message,
   onCitation,
+  saved,
+  saving,
+  onSave,
 }: {
   message: ConversationMessage;
   onCitation: (citation: Citation) => void;
+  saved: boolean;
+  saving: boolean;
+  onSave: () => void;
 }) {
   if (message.role === "question") {
     return <QuestionBubble content={message.content} />;
@@ -200,6 +221,21 @@ function MessageCard({
             </button>
           ))}
         </div>
+      ) : null}
+      {message.status === "completed" ? (
+        <button
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--sage)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:opacity-60"
+          disabled={saved || saving}
+          onClick={onSave}
+          aria-label={saved ? "Answer saved as Note" : "Save Answer as Note"}
+        >
+          {saving ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Save className="size-3.5" />
+          )}
+          {saved ? "Saved to Notes" : saving ? "Saving…" : "Save as Note"}
+        </button>
       ) : null}
     </article>
   );

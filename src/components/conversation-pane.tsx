@@ -27,6 +27,9 @@ export function ConversationPane({
   onAsk,
   onRetry,
   onCitation,
+  savedAnswerIds,
+  savingAnswerId,
+  onSaveAnswer,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -41,6 +44,9 @@ export function ConversationPane({
   onAsk: (question: string) => Promise<boolean>;
   onRetry: () => void;
   onCitation: (citation: Citation) => void;
+  savedAnswerIds: Set<string>;
+  savingAnswerId?: string;
+  onSaveAnswer: (answer: ConversationMessage, question: string) => void;
 }) {
   return (
     <section
@@ -73,6 +79,9 @@ export function ConversationPane({
           onAsk={onAsk}
           onRetry={onRetry}
           onCitation={onCitation}
+          savedAnswerIds={savedAnswerIds}
+          savingAnswerId={savingAnswerId}
+          onSaveAnswer={onSaveAnswer}
         />
       ) : (
         <NoNotebook onCreate={onCreate} />

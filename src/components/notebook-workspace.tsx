@@ -23,6 +23,8 @@ import { useConversation } from "@/features/conversations/use-conversation";
 import type { Notebook } from "@/features/notebooks/model";
 import { createNotebookRepository } from "@/features/notebooks/repository";
 import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspace";
+import { createNoteRepository } from "@/features/notes/repository";
+import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 
@@ -46,6 +48,7 @@ export function NotebookWorkspace({
     () => createConversationRepository(),
     [],
   );
+  const noteRepository = useMemo(() => createNoteRepository(), []);
   const navigate = useCallback(
     (notebookId?: string) =>
       router.replace(notebookId ? `/?notebook=${notebookId}` : "/", {
@@ -68,9 +71,17 @@ export function NotebookWorkspace({
     notebookId: workspace.activeNotebook?.id,
     repository: conversationRepository,
   });
+  const notes = useNotes({
+    notebookId: workspace.activeNotebook?.id,
+    ownerId: guestId,
+    repository: noteRepository,
+  });
 
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversation");
   const [selectedCitation, setSelectedCitation] = useState<Citation>();
+  const [studioView, setStudioView] = useState<"citation" | "notes">("notes");
+  const [selectedNoteId, setSelectedNoteId] = useState<string>();
+  const [savingAnswerId, setSavingAnswerId] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Notebook>();
   const [deleteTarget, setDeleteTarget] = useState<Notebook>();
@@ -187,13 +198,42 @@ export function NotebookWorkspace({
           onRetry={() => void conversation.retry()}
           onCitation={(citation) => {
             setSelectedCitation(citation);
+            setStudioView("citation");
             setMobilePanel("studio");
+          }}
+          savedAnswerIds={
+            new Set(notes.notes.map(({ origin_answer_id }) => origin_answer_id))
+          }
+          savingAnswerId={savingAnswerId}
+          onSaveAnswer={(answer, question) => {
+            setSavingAnswerId(answer.id);
+            void notes
+              .create(answer.id, question, answer.content)
+              .then((note) => {
+                if (note) {
+                  setSelectedNoteId(note.id);
+                  setStudioView("notes");
+                  setMobilePanel("studio");
+                }
+                setSavingAnswerId(undefined);
+              });
           }}
         />
         <StudioPane
           visible={mobilePanel === "studio"}
           citation={selectedCitation}
           onCloseCitation={() => setSelectedCitation(undefined)}
+          view={studioView}
+          onViewChange={setStudioView}
+          notes={notes.notes}
+          notesStatus={notes.status}
+          selectedNoteId={selectedNoteId}
+          notesPending={notes.pending}
+          notesError={notes.error}
+          onSelectNote={setSelectedNoteId}
+          onUpdateNote={notes.update}
+          onDeleteNote={notes.remove}
+          onRetryNotes={() => void notes.retry()}
         />
       </div>
 

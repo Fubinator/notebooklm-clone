@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
   sourceList: vi.fn(),
   conversationList: vi.fn(),
   askQuestion: vi.fn(),
+  noteList: vi.fn(),
+  createNote: vi.fn(),
+  updateNote: vi.fn(),
+  removeNote: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -37,6 +41,15 @@ vi.mock("@/features/conversations/repository", () => ({
   createConversationRepository: () => ({
     list: mocks.conversationList,
     ask: mocks.askQuestion,
+  }),
+}));
+
+vi.mock("@/features/notes/repository", () => ({
+  createNoteRepository: () => ({
+    list: mocks.noteList,
+    create: mocks.createNote,
+    update: mocks.updateNote,
+    remove: mocks.removeNote,
   }),
 }));
 
@@ -151,6 +164,7 @@ describe("Notebook workspace", () => {
     mocks.sourceList.mockResolvedValue([]);
     mocks.conversationList.mockResolvedValue([]);
     mocks.askQuestion.mockResolvedValue(undefined);
+    mocks.noteList.mockResolvedValue([]);
   });
 
   it("lists persisted Notebooks, opens one, and renders the Sources empty state", async () => {
@@ -279,6 +293,52 @@ describe("Notebook workspace", () => {
         question: "What are the four AI RMF functions?",
       }),
     );
+  });
+
+  it("saves a completed Answer as a linked Note and keeps Conversation state", async () => {
+    mocks.sourceList.mockResolvedValue([exampleSource]);
+    mocks.conversationList.mockResolvedValue(groundedMessages);
+    const savedNote = {
+      id: "50000000-0000-4000-8000-000000000001",
+      notebook_id: example.id,
+      owner_id: first.owner_id!,
+      origin_answer_id: groundedMessages[1]!.id,
+      origin_question: groundedMessages[0]!.content,
+      content: groundedMessages[1]!.content,
+      created_at: "2026-08-14T11:00:00.000Z",
+      updated_at: "2026-08-14T11:00:00.000Z",
+    };
+    mocks.createNote.mockResolvedValue(savedNote);
+
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[example]}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Save Answer as Note" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.createNote).toHaveBeenCalledWith({
+        notebookId: example.id,
+        ownerId: first.owner_id,
+        answerId: groundedMessages[1]!.id,
+        question: groundedMessages[0]!.content,
+        content: groundedMessages[1]!.content,
+      }),
+    );
+    expect(screen.getByLabelText("Selected Note")).toHaveTextContent(
+      groundedMessages[0]!.content,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Conversation" }));
+    expect(
+      screen.getAllByText(groundedMessages[1]!.content).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: "Answer saved as Note" }),
+    ).toBeDisabled();
   });
 
   it("shows understandable Source loading and retry states", async () => {
