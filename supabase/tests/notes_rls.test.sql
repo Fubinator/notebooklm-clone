@@ -30,7 +30,7 @@ set local request.jwt.claims =
   '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated","is_anonymous":true}';
 
 select lives_ok(
-  $$insert into public.notes (id, notebook_id, owner_id, origin_answer_id, origin_question, content) values ('60000000-0000-4000-8000-000000000005', '60000000-0000-4000-8000-000000000001', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', '60000000-0000-4000-8000-000000000004', 'Client-supplied mismatch', 'Validated evidence matters.')$$,
+  $$insert into public.notes (id, notebook_id, owner_id, origin_answer_id, content) values ('60000000-0000-4000-8000-000000000005', '60000000-0000-4000-8000-000000000001', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', '60000000-0000-4000-8000-000000000004', 'Validated evidence matters.')$$,
   'Guest E can save their completed Answer as a Note'
 );
 
