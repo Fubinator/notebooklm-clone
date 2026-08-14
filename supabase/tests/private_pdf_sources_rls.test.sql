@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(6);
 
 select is(
   (select storage_path from public.sources where id = '00000000-0000-4000-8000-000000000031'),
@@ -62,19 +62,25 @@ values (
 set local role authenticated;
 set local request.jwt.claim.sub = 'abababab-abab-4bab-8bab-abababababab';
 select is((select count(*)::integer from storage.objects where bucket_id = 'source-files'), 1, 'The owning Guest can read the private original PDF');
-select lives_ok($$delete from storage.objects where bucket_id = 'source-files'$$, 'The owning Guest can mutate their private original PDF');
-
-reset role;
-insert into storage.objects (bucket_id, name, owner_id, metadata)
-values (
-  'source-files',
-  'abababab-abab-4bab-8bab-abababababab/60000000-0000-4000-8000-000000000001/60000000-0000-4000-8000-000000000002/original.pdf',
-  'abababab-abab-4bab-8bab-abababababab',
-  '{"mimetype":"application/pdf"}'
+select lives_ok(
+  $$update storage.objects set metadata = metadata || '{"rls_test":"owner"}'::jsonb where bucket_id = 'source-files'$$,
+  'The owning Guest can mutate their private original PDF metadata'
 );
-set local role authenticated;
+
+set local request.jwt.claims =
+  '{"sub":"cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd","role":"authenticated","is_anonymous":true}';
 set local request.jwt.claim.sub = 'cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd';
 select is((select count(*)::integer from storage.objects where bucket_id = 'source-files'), 0, 'Another Guest cannot read the private original PDF');
+update storage.objects
+set metadata = metadata || '{"rls_test":"other"}'::jsonb
+where bucket_id = 'source-files';
+
+reset role;
+select is(
+  (select metadata ->> 'rls_test' from storage.objects where bucket_id = 'source-files'),
+  'owner',
+  'Another Guest cannot mutate the private original PDF metadata'
+);
 
 select * from finish();
 rollback;
