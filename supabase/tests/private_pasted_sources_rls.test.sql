@@ -56,6 +56,12 @@ select
 from public.passages
 where id = '00000000-0000-4000-8100-000000000001';
 
+create temporary table private_question_embedding as
+select embedding
+from public.passages
+where id = '50000000-0000-4000-8000-000000000003';
+grant select on table private_question_embedding to authenticated;
+
 set local role authenticated;
 set local request.jwt.claims =
   '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated","is_anonymous":true}';
@@ -70,7 +76,7 @@ select is(
     select passage_id from public.retrieve_grounded_passages(
       'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
       '50000000-0000-4000-8000-000000000001',
-      (select embedding from public.passages where id = '50000000-0000-4000-8000-000000000003'),
+      (select embedding from private_question_embedding),
       1,
       0
     ) limit 1
