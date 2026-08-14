@@ -147,9 +147,13 @@ describe("Notebook workspace", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("button", { name: /Example Sources are read-only/ }),
-    ).toBeDisabled();
+    const addSourceButton = screen.getByRole("button", {
+      name: "Add Source",
+    });
+    expect(addSourceButton).toBeDisabled();
+    expect(addSourceButton).toHaveAccessibleDescription(
+      "Sources in the Example Notebook are read-only.",
+    );
     openNotebookMenu();
     expect(
       screen.queryByText("Rename active Notebook"),

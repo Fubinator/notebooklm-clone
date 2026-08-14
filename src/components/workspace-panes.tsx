@@ -93,12 +93,24 @@ export function SourcesPane({
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <Button className="w-full" disabled>
+        <Button
+          className="w-full"
+          disabled
+          aria-describedby={
+            notebook?.is_example ? "example-sources-read-only" : undefined
+          }
+        >
           <FilePlus2 className="size-4" />
-          {notebook?.is_example
-            ? "Example Sources are read-only"
-            : "Add Source"}
+          Add Source
         </Button>
+        {notebook?.is_example ? (
+          <p
+            id="example-sources-read-only"
+            className="mt-2 px-1 text-xs leading-4 font-medium text-red-700"
+          >
+            Sources in the Example Notebook are read-only.
+          </p>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto py-4">
           <SourceListState
             notebook={notebook}
