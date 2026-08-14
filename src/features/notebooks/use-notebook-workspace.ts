@@ -20,6 +20,7 @@ type NotebookWorkspaceOptions = {
   initialActiveId?: string;
   repository: NotebookRepository;
   navigate: (notebookId?: string) => void;
+  notebookLimit?: number;
 };
 
 export function useNotebookWorkspace({
@@ -28,6 +29,7 @@ export function useNotebookWorkspace({
   initialActiveId,
   repository,
   navigate,
+  notebookLimit = NOTEBOOK_LIMIT,
 }: NotebookWorkspaceOptions) {
   const [notebooks, setNotebooks] = useState(() =>
     sortNotebooks(initialNotebooks),
@@ -69,10 +71,10 @@ export function useNotebookWorkspace({
       const privateNotebookCount = notebooks.filter(
         ({ is_example }) => !is_example,
       ).length;
-      if (!canCreateNotebook(privateNotebookCount)) {
+      if (!canCreateNotebook(privateNotebookCount, notebookLimit)) {
         return {
           ok: false,
-          message: `A Guest can keep up to ${NOTEBOOK_LIMIT} Notebooks.`,
+          message: `A Guest can keep up to ${notebookLimit} Notebooks.`,
         };
       }
 
@@ -93,7 +95,7 @@ export function useNotebookWorkspace({
         setPending(false);
       }
     },
-    [guestId, navigate, notebooks, repository, showNotice],
+    [guestId, navigate, notebookLimit, notebooks, repository, showNotice],
   );
 
   const rename = useCallback(
@@ -163,6 +165,7 @@ export function useNotebookWorkspace({
     activeNotebook: notebooks.find(({ id }) => id === activeId),
     atLimit: !canCreateNotebook(
       notebooks.filter(({ is_example }) => !is_example).length,
+      notebookLimit,
     ),
     pending,
     notice,

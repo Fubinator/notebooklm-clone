@@ -30,6 +30,7 @@ export function ConversationPane({
   savedAnswerIds,
   savingAnswerId,
   onSaveAnswer,
+  dailyQuestionLimit = 20,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -47,6 +48,7 @@ export function ConversationPane({
   savedAnswerIds: Set<string>;
   savingAnswerId?: string;
   onSaveAnswer: (answer: ConversationMessage) => void;
+  dailyQuestionLimit?: number;
 }) {
   return (
     <section
@@ -63,7 +65,7 @@ export function ConversationPane({
           <h2 className="text-sm font-semibold">Conversation</h2>
         </div>
         <span className="rounded-full bg-[var(--sage)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
-          Grounded in Sources
+          {dailyQuestionLimit}/day · Grounded
         </span>
       </div>
       {source ? (

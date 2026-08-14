@@ -7,6 +7,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation";
+import { getApplicationLimits } from "@/lib/limits";
+import { safeErrorCategory, writeStructuredLog } from "@/lib/structured-log";
 
 type CreateInput =
   | {
@@ -18,6 +20,8 @@ type CreateInput =
   | { kind: "pdf"; notebookId: unknown; title: unknown; file: File | null };
 
 export async function POST(request: Request) {
+  const correlationId = crypto.randomUUID();
+  const startedAt = performance.now();
   const supabase = await createClient();
   const {
     data: { user },
@@ -94,9 +98,10 @@ export async function POST(request: Request) {
     .from("sources")
     .select("id", { count: "exact", head: true })
     .eq("notebook_id", notebook.id);
-  if ((count ?? 0) >= 5)
+  const sourceLimit = getApplicationLimits().sourcesPerNotebook;
+  if ((count ?? 0) >= sourceLimit)
     return Response.json(
-      { error: "This Notebook already has 5 Sources." },
+      { error: `This Notebook already has ${sourceLimit} Sources.` },
       { status: 409 },
     );
 
@@ -147,11 +152,35 @@ export async function POST(request: Request) {
   if (error) {
     if (storagePath)
       await admin.storage.from("source-files").remove([storagePath]);
+    writeStructuredLog("error", {
+      operation: "source_creation",
+      correlationId,
+      guestId: user.id,
+      notebookId: notebook.id,
+      sourceId,
+      stage: "persist",
+      durationMs: Math.round(performance.now() - startedAt),
+      outcome: "failed",
+      category: safeErrorCategory(error),
+    });
     return Response.json(
       { error: "The Source could not be saved." },
       { status: 500 },
     );
   }
+  writeStructuredLog("info", {
+    operation: "source_creation",
+    correlationId,
+    guestId: user.id,
+    notebookId: notebook.id,
+    sourceId,
+    sourceKind: input.kind,
+    stage: "persist",
+    durationMs: Math.round(performance.now() - startedAt),
+    outcome: "created",
+    provider: CLOUDFLARE_EMBEDDING.provider,
+    model: CLOUDFLARE_EMBEDDING.model,
+  });
   return Response.json({ source: data }, { status: 201 });
 }
 

@@ -31,15 +31,25 @@ export type AnsweringPersistence = {
 export function createAnsweringPersistence(
   supabase: SupabaseClient<Database>,
   guestId: string,
+  budget?: { guestDailyLimit: number; deploymentHardCeiling: number },
 ): AnsweringPersistence {
   return {
     async begin({ notebookId, question, correlationId }) {
-      const { data, error } = await supabase.rpc("begin_grounded_question", {
-        target_guest_id: guestId,
-        target_notebook_id: notebookId,
-        question_content: question,
-        request_correlation_id: correlationId,
-      });
+      const { data, error } = budget
+        ? await supabase.rpc("begin_budgeted_grounded_question", {
+            target_guest_id: guestId,
+            target_notebook_id: notebookId,
+            question_content: question,
+            request_correlation_id: correlationId,
+            guest_daily_limit: budget.guestDailyLimit,
+            deployment_hard_ceiling: budget.deploymentHardCeiling,
+          })
+        : await supabase.rpc("begin_grounded_question", {
+            target_guest_id: guestId,
+            target_notebook_id: notebookId,
+            question_content: question,
+            request_correlation_id: correlationId,
+          });
       if (error) throw error;
 
       const pending = data[0];
@@ -61,15 +71,18 @@ export function createAnsweringPersistence(
     },
 
     async complete({ answerId, content, kind, provider, model, citationIds }) {
-      const { error } = await supabase.rpc("complete_grounded_answer", {
-        target_guest_id: guestId,
-        target_answer_id: answerId,
-        answer_content: content,
-        completion_kind: kind,
-        completion_provider: provider,
-        completion_model: model,
-        cited_passage_ids: citationIds,
-      });
+      const { error } = await supabase.rpc(
+        "complete_grounded_answer_with_usage",
+        {
+          target_guest_id: guestId,
+          target_answer_id: answerId,
+          answer_content: content,
+          completion_kind: kind,
+          completion_provider: provider,
+          completion_model: model,
+          cited_passage_ids: citationIds,
+        },
+      );
       if (error) throw error;
     },
 

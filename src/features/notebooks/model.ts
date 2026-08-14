@@ -25,8 +25,8 @@ export function validateNotebookTitle(value: string): TitleValidation {
   return { ok: true, title };
 }
 
-export function canCreateNotebook(count: number) {
-  return count < NOTEBOOK_LIMIT;
+export function canCreateNotebook(count: number, limit = NOTEBOOK_LIMIT) {
+  return count < limit;
 }
 
 export function sortNotebooks(notebooks: Notebook[]) {

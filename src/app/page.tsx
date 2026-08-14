@@ -2,6 +2,7 @@ import { ConfigurationRequired } from "@/components/configuration-required";
 import { GuestGate } from "@/components/guest-gate";
 import { NotebookWorkspace } from "@/components/notebook-workspace";
 import { hasSupabaseEnvironment } from "@/lib/env";
+import { getApplicationLimits } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export default async function Home({ searchParams }: HomeProps) {
           ? "Your Notebooks could not be loaded. Refresh to try again."
           : undefined
       }
+      limits={getApplicationLimits()}
     />
   );
 }

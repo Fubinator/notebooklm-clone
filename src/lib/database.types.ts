@@ -12,6 +12,42 @@ export type ProcessingStage =
 export type Database = {
   public: {
     Tables: {
+      model_usage: {
+        Row: {
+          id: number;
+          guest_id: string;
+          answer_message_id: string;
+          provider: string;
+          model: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: never;
+          guest_id: string;
+          answer_message_id: string;
+          provider: string;
+          model: string;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      ingestion_leases: {
+        Row: {
+          source_id: string;
+          guest_id: string;
+          correlation_id: string;
+          acquired_at: string;
+        };
+        Insert: {
+          source_id: string;
+          guest_id: string;
+          correlation_id: string;
+          acquired_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       notes: {
         Row: {
           id: string;
@@ -309,6 +345,21 @@ export type Database = {
           answer_id: string;
         }[];
       };
+      begin_budgeted_grounded_question: {
+        Args: {
+          target_guest_id: string;
+          target_notebook_id: string;
+          question_content: string;
+          request_correlation_id: string;
+          guest_daily_limit: number;
+          deployment_hard_ceiling: number;
+        };
+        Returns: {
+          conversation_id: string;
+          question_id: string;
+          answer_id: string;
+        }[];
+      };
       complete_answer: {
         Args: {
           target_answer_id: string;
@@ -329,6 +380,43 @@ export type Database = {
           completion_provider: string | null;
           completion_model: string | null;
           cited_passage_ids?: string[];
+        };
+        Returns: undefined;
+      };
+      complete_grounded_answer_with_usage: {
+        Args: {
+          target_guest_id: string;
+          target_answer_id: string;
+          answer_content: string;
+          completion_kind: "grounded" | "insufficient_evidence";
+          completion_provider: string | null;
+          completion_model: string | null;
+          cited_passage_ids?: string[];
+        };
+        Returns: undefined;
+      };
+      assert_question_budget: {
+        Args: {
+          target_guest_id: string;
+          guest_daily_limit: number;
+          deployment_hard_ceiling: number;
+        };
+        Returns: undefined;
+      };
+      acquire_ingestion_lease: {
+        Args: {
+          target_guest_id: string;
+          target_source_id: string;
+          request_correlation_id: string;
+          concurrent_limit: number;
+        };
+        Returns: undefined;
+      };
+      release_ingestion_lease: {
+        Args: {
+          target_guest_id: string;
+          target_source_id: string;
+          request_correlation_id: string;
         };
         Returns: undefined;
       };

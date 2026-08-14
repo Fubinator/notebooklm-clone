@@ -7,6 +7,11 @@ import { validateQuestion } from "@/features/conversations/model";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/validation";
+import {
+  getApplicationLimits,
+  getDeploymentQuestionCeiling,
+} from "@/lib/limits";
+import { safeErrorCategory, writeStructuredLog } from "@/lib/structured-log";
 
 type QuestionRequest = {
   notebookId?: unknown;
@@ -49,8 +54,13 @@ export async function POST(request: Request) {
   }
 
   const correlationId = crypto.randomUUID();
+  const startedAt = performance.now();
   try {
     const admin = createAdminClient();
+    const limits = getApplicationLimits();
+    const deploymentHardCeiling = getDeploymentQuestionCeiling();
+
+    const answerModel = createAnswerModel();
     const result = await answerGroundedQuestion(
       {
         notebookId: body.notebookId,
@@ -58,39 +68,67 @@ export async function POST(request: Request) {
         correlationId,
       },
       {
-        persistence: createAnsweringPersistence(admin, user.id),
+        persistence: createAnsweringPersistence(admin, user.id, {
+          guestDailyLimit: limits.questionsPerGuestPerUtcDay,
+          deploymentHardCeiling,
+        }),
         retrieve: (notebookId, question) =>
           retrieveEvidence(admin, user.id, notebookId, question),
-        answerModel: createAnswerModel(),
+        answerModel,
       },
     );
+
+    writeStructuredLog("info", {
+      operation: "grounded_answering",
+      correlationId,
+      guestId: user.id,
+      notebookId: body.notebookId,
+      stage: "complete",
+      durationMs: Math.round(performance.now() - startedAt),
+      outcome: result.status,
+      answerKind: result.kind,
+      provider: answerModel.provider,
+      model: answerModel.model,
+    });
 
     return Response.json({ result }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    console.error(
-      JSON.stringify({
-        operation: "grounded_answering",
-        correlationId,
-        guestId: user.id,
-        notebookId: body.notebookId,
-        outcome: "failed",
-        category: safeErrorCategory(message),
-        ...(error instanceof AnswerProviderRequestError
-          ? {
-              providerStatus: error.status,
-              ...(error.providerCode === null
-                ? {}
-                : { providerCode: error.providerCode }),
-            }
-          : {}),
-      }),
-    );
+    writeStructuredLog("error", {
+      operation: "grounded_answering",
+      correlationId,
+      guestId: user.id,
+      notebookId: body.notebookId,
+      stage: "request",
+      durationMs: Math.round(performance.now() - startedAt),
+      outcome: "failed",
+      category: safeErrorCategory(error),
+      ...(error instanceof AnswerProviderRequestError
+        ? {
+            providerStatus: error.status,
+            ...(error.providerCode === null
+              ? {}
+              : { providerCode: error.providerCode }),
+          }
+        : {}),
+    });
 
     if (message.includes("question_limit_reached")) {
       return Response.json(
-        { error: "You have reached today’s 20 grounded Questions." },
+        {
+          error: `You have reached today’s ${getApplicationLimits().questionsPerGuestPerUtcDay} grounded Questions. Your existing research remains available.`,
+        },
         { status: 429 },
+      );
+    }
+
+    if (message.includes("deployment_question_budget_reached")) {
+      return Response.json(
+        {
+          error:
+            "New Questions are temporarily unavailable because the deployment budget is paused. Existing research remains available.",
+        },
+        { status: 503 },
       );
     }
 
@@ -106,8 +144,4 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-}
-
-function safeErrorCategory(message: string) {
-  return message.split(":", 1)[0] || "unknown_failure";
 }

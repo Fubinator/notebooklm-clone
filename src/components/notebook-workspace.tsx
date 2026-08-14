@@ -39,12 +39,14 @@ import {
   validatePastedText,
 } from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
+import type { ApplicationLimits } from "@/lib/limits";
 
 type WorkspaceProps = {
   guestId: string;
   initialNotebooks: Notebook[];
   initialActiveId?: string;
   initialError?: string;
+  limits?: ApplicationLimits;
 };
 
 export function NotebookWorkspace({
@@ -52,6 +54,12 @@ export function NotebookWorkspace({
   initialNotebooks,
   initialActiveId,
   initialError,
+  limits = {
+    notebooksPerGuest: 5,
+    sourcesPerNotebook: 5,
+    concurrentIngestionsPerGuest: 1,
+    questionsPerGuestPerUtcDay: 20,
+  },
 }: WorkspaceProps) {
   const router = useRouter();
   const repository = useMemo(() => createNotebookRepository(), []);
@@ -77,6 +85,7 @@ export function NotebookWorkspace({
     initialActiveId,
     repository,
     navigate,
+    notebookLimit: limits.notebooksPerGuest,
   });
   const sourceLibrary = useSourceLibrary({
     notebookId: workspace.activeNotebook?.id,
@@ -254,6 +263,7 @@ export function NotebookWorkspace({
         notebooks={workspace.notebooks}
         activeNotebook={workspace.activeNotebook}
         atLimit={workspace.atLimit}
+        notebookLimit={limits.notebooksPerGuest}
         onSelect={(id) => {
           workspace.select(id);
           setSelectedCitation(undefined);
@@ -291,6 +301,7 @@ export function NotebookWorkspace({
             setSourceOpen(true);
           }}
           onProcess={(sourceId) => void sourceLibrary.process(sourceId)}
+          sourceLimit={limits.sourcesPerNotebook}
         />
         <ConversationPane
           visible
@@ -334,6 +345,7 @@ export function NotebookWorkspace({
               setSavingAnswerId(undefined);
             });
           }}
+          dailyQuestionLimit={limits.questionsPerGuestPerUtcDay}
         />
         <StudioPane
           visible={mobilePanel === "studio"}
@@ -370,6 +382,7 @@ export function NotebookWorkspace({
         error={formError}
         pending={workspace.pending}
         onSubmit={(event) => void handleCreate(event)}
+        notebookLimit={limits.notebooksPerGuest}
       />
 
       <RenameNotebookDialog

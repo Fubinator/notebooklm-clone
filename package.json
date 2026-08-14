@@ -12,6 +12,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:seed": "vitest run scripts/generate-example-seed.test.mjs",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "seed:example": "node --env-file-if-exists=.env.local scripts/generate-example-seed.mjs"
   },
@@ -30,6 +32,7 @@
     "unpdf": "^1.8.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
