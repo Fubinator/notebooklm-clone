@@ -14,8 +14,7 @@ import {
 describe("committed Example seed", () => {
   it("matches the configured Cloudflare vector space", async () => {
     const seed = await readFile(resolve("supabase/seed.sql"), "utf8");
-    const sourceConfiguration =
-      `'${PROVIDER}', '${MODEL}', ${DIMENSIONS}, '${POOLING}'`;
+    const sourceConfiguration = `'${PROVIDER}', '${MODEL}', ${DIMENSIONS}, '${POOLING}'`;
 
     expect(
       seed.includes(
