@@ -316,7 +316,7 @@ begin
       passages.page_number,
       passages.paragraph_start,
       passages.paragraph_end,
-      1 - (passages.embedding <=> question_embedding) as similarity
+      1 - extensions.cosine_distance(passages.embedding, question_embedding) as similarity
     from public.passages
     join public.sources on sources.id = passages.source_id
     where sources.notebook_id = target_notebook_id
