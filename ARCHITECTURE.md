@@ -269,6 +269,8 @@ Automation that exercises a protected Vercel deployment uses a dedicated deploym
 | Trust model | Validated Passage Citations and insufficient-evidence behavior |
 | Data access | Browser CRUD under RLS; privileged and AI work server-only |
 | Observability | Structured, content-free logs in existing platform dashboards |
+| Embedding provider | Hugging Face Inference with `sentence-transformers/all-MiniLM-L6-v2`, normalized 384-dimension vectors |
+| Example Sources | Attributed excerpts from NIST AI 100-1 and NIST AI 600-1 under NIST Technical Series reuse terms |
 
 These are recorded here rather than as ADRs because the application has not yet been implemented and the choices remain inexpensive to revisit.
 
@@ -279,12 +281,10 @@ These unknowns must not expand the committed product scope.
 | Decision | Owner | Resolve by | Acceptance test | Fallback |
 | --- | --- | --- | --- | --- |
 | Chat provider, model, and response contract | Candidate | Initial setup, before Grounded Answering | Streams or returns a grounded response and emits machine-readable Passage IDs using server-held credentials | Select one inexpensive, supported chat provider and implement its single adapter |
-| Embedding provider, model, and dimension | Candidate | Initial setup, before vector schema migration | Produces stable vectors for Source Passages and Questions; fixture similarity ranks expected evidence | Provision one inexpensive embedding provider separate from chat |
 | PDF extraction library | Builder | Narrow ingestion spike | Extracts representative text PDFs, preserves page numbers, rejects empty/encrypted failures safely, and works in Vercel's runtime | Select the next small server-compatible parser that passes the same contract tests |
 | Passage size and overlap | Builder | Retrieval spike | Five-Question fixture retrieves expected Passages without excessive prompt volume | Start with conservative fixed-size overlapping Passages and tune only against the fixture |
 | Retrieval result count and adequacy threshold | Builder | Retrieval spike | Expected evidence appears within the returned set and unrelated Questions trigger insufficient evidence | Keep values server-configurable and favor refusing over unsupported Answers |
 | Global provider budget and daily deployment ceiling | Candidate | Before first shared deployment | Provider and application stop new model work at the chosen spend ceiling | Disable new Questions while leaving the Example Notebook readable |
-| Final Example Notebook Sources | Candidate | Before seed finalization | Two or three technically substantive Sources are legally reusable and support the prepared Questions | Author a small original research packet for the demo |
 
 ## References
 

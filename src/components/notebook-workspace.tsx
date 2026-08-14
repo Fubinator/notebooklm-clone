@@ -20,6 +20,8 @@ import {
 import type { Notebook } from "@/features/notebooks/model";
 import { createNotebookRepository } from "@/features/notebooks/repository";
 import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspace";
+import { createSourceRepository } from "@/features/sources/repository";
+import { useSourceLibrary } from "@/features/sources/use-source-library";
 
 type WorkspaceProps = {
   guestId: string;
@@ -36,6 +38,7 @@ export function NotebookWorkspace({
 }: WorkspaceProps) {
   const router = useRouter();
   const repository = useMemo(() => createNotebookRepository(), []);
+  const sourceRepository = useMemo(() => createSourceRepository(), []);
   const navigate = useCallback(
     (notebookId?: string) =>
       router.replace(notebookId ? `/?notebook=${notebookId}` : "/", {
@@ -49,6 +52,10 @@ export function NotebookWorkspace({
     initialActiveId,
     repository,
     navigate,
+  });
+  const sourceLibrary = useSourceLibrary({
+    notebookId: workspace.activeNotebook?.id,
+    repository: sourceRepository,
   });
 
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversation");
@@ -135,11 +142,21 @@ export function NotebookWorkspace({
       <div className="grid min-h-0 flex-1 lg:grid-cols-[286px_minmax(360px,1fr)_318px]">
         <SourcesPane
           visible={mobilePanel === "sources"}
-          hasNotebook={Boolean(workspace.activeNotebook)}
+          notebook={workspace.activeNotebook}
+          sources={sourceLibrary.sources}
+          status={sourceLibrary.status}
+          selectedSourceId={sourceLibrary.selectedId}
+          onSelect={(sourceId) => {
+            sourceLibrary.select(sourceId);
+            setMobilePanel("conversation");
+          }}
+          onRetry={() => void sourceLibrary.retry()}
         />
         <ConversationPane
           visible={mobilePanel === "conversation"}
           notebook={workspace.activeNotebook}
+          source={sourceLibrary.selectedSource}
+          onCloseSource={() => sourceLibrary.select(undefined)}
           onCreate={openCreate}
         />
         <StudioPane visible={mobilePanel === "studio"} />

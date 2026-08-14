@@ -2,21 +2,25 @@
 
 NotebookLM-Clone is a private, source-grounded research workspace built for a focused full-stack interview demonstration. The product uses the original interface name **Margin** and does not claim affiliation with Google.
 
-This first vertical slice creates or restores a Supabase-authenticated Guest without an application login form. A Guest can create, list, open, rename, and delete private Notebooks in a responsive three-pane research desk. Supabase Row Level Security—not UI filtering—enforces ownership.
+The application creates or restores a Supabase-authenticated Guest without an application login form. Every Guest can immediately explore a shared, read-only Example Notebook, while creating and managing private Notebooks in the same responsive three-pane research desk. Supabase Row Level Security—not UI filtering—enforces both shared access and private ownership.
 
 ## What works
 
 - Automatic Supabase anonymous sign-in with cookie-backed session restoration
 - Dynamically rendered identity-bearing pages to prevent Guest metadata caching
 - Private Notebook create, list, open, rename, and delete behavior
+- Immediate shared Example Notebook with two attributed NIST Sources
+- Readable Source previews with ordered PDF-page Passages
+- Reproducible 384-dimension MiniLM embeddings stored with pgvector
+- Database-enforced immutability for Example Notebook data
 - Database-enforced ownership, title constraints, and five-Notebook Guest limit
 - Desktop three-pane Sources, Conversation, and Studio shell
 - Purposeful unconfigured, loading, empty, disabled, error, and success states
 - Narrow-screen panel navigation
-- Focused domain/UI tests and a two-Guest RLS authorization test
+- Focused domain/UI tests and a two-Guest seed/RLS authorization test
 - CI checks for formatting, linting, TypeScript, tests, production build, and RLS
 
-Sources, grounded Answers, Citations, and Notes are represented by intentional empty states; their behavior belongs to later vertical slices.
+Private Source ingestion, grounded Answers, Citations, and Notes belong to later vertical slices. The Example Sources and their ready Passages are implemented here so retrieval can build on stable evidence.
 
 ## Stack
 
@@ -24,6 +28,7 @@ Sources, grounded Answers, Citations, and Notes are represented by intentional e
 - TypeScript and Tailwind CSS 4
 - shadcn/ui-style primitives backed by Radix UI
 - Supabase Auth and Postgres with Row Level Security
+- pgvector and Hugging Face Inference (`sentence-transformers/all-MiniLM-L6-v2`)
 - Vitest, Testing Library, and pgTAP
 - Vercel deployment
 
@@ -63,14 +68,28 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_local_publishable_key
 ```
 
+`supabase db reset` replays the migrations and committed `supabase/seed.sql`, producing the same Example Notebook, Sources, Passages, and embeddings every time.
+
 For a hosted project:
 
 1. Open **Authentication → Sign In / Providers → Anonymous Sign-Ins** and enable anonymous sign-ins.
 2. Link the CLI with `supabase link --project-ref <project-ref>`.
-3. Apply the migration with `supabase db push`.
+3. Apply the migrations and Example seed with `supabase db push --include-seed` on the fresh preview project.
 4. Copy the Project URL and publishable key from the project’s **Connect** dialog into `.env.local`.
 
-Do not add a service-role or secret key. This slice performs ordinary Notebook CRUD as the authenticated Guest under RLS.
+Do not add a service-role key. Ordinary reads and Notebook CRUD run as the authenticated Guest under RLS.
+
+### Embedding provider
+
+Later private Source ingestion uses the server-only `HUGGINGFACE_ACCESS_TOKEN` from `.env.example`. Create a Hugging Face token with Inference Providers permission and configure it only in the server environment. The current Example seed already contains normalized MiniLM vectors, so the token is not needed merely to browse it.
+
+To deliberately regenerate the committed Example seed with the configured provider:
+
+```bash
+npm run seed:example > supabase/seed.sql
+```
+
+The corpus contains excerpts from NIST AI 100-1 and NIST AI 600-1. Each Source displays its authors, DOI, and NIST Technical Series reuse terms; every excerpt retains its printed PDF page.
 
 ### 3. Run the application
 
@@ -98,12 +117,12 @@ With the local Supabase stack running, verify database authorization:
 supabase test db
 ```
 
-The pgTAP test assumes two independent authenticated Guests and proves that one Guest cannot list, rename, or delete the other Guest’s Notebook. The migration also rejects inserting a Notebook for another owner.
+The pgTAP test proves the seed shape and embedding dimensions, gives both authenticated Guests read access to Example data, denies Example mutations, and preserves isolation for a private Notebook owned by only one Guest.
 
 ## Vercel preview
 
 1. Import this repository into Vercel.
-2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the Preview environment.
+2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the server-only `HUGGINGFACE_ACCESS_TOKEN` to the Preview environment.
 3. Add the preview URL to Supabase Auth’s allowed redirect URLs.
 4. Deploy the branch and smoke-test it in a private browser window.
 5. In Vercel, enable Deployment Protection for preview deployments and create a shareable link for the reviewer.
@@ -116,7 +135,8 @@ The Vercel gate controls who can reach the preview; Supabase RLS continues to is
 - `src/app/page.tsx` explicitly forces dynamic rendering and disables revalidation.
 - Supabase access and refresh tokens are stored in SSR-compatible cookies and refreshed by `src/proxy.ts`.
 - The browser receives only a publishable Supabase key. No privileged key is required or referenced.
-- Every exposed Notebook operation is constrained to `auth.uid() = owner_id` in the database.
+- Private Notebook mutations are constrained to `auth.uid() = owner_id`; Example records have no owner and no Guest mutation policy.
+- Authenticated Guests receive SELECT-only access to Source content and location metadata; Passage embeddings are not granted to the browser.
 - Unauthenticated requests receive no Notebook table privileges.
 - `.env*` files are ignored except for the credential-free `.env.example` template.
 
@@ -129,4 +149,6 @@ Anonymous Guests lose access if their browser storage is cleared or they sign ou
 - [Domain language](./CONTEXT.md)
 - [Delivery and walkthrough plan](./DEMO.md)
 - [Notebook migration](./supabase/migrations/20260814000000_create_notebooks.sql)
+- [Example Source migration](./supabase/migrations/20260814010000_create_example_sources.sql)
+- [Reproducible Example seed](./supabase/seed.sql)
 - [RLS authorization test](./supabase/tests/notebooks_rls.test.sql)

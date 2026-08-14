@@ -46,6 +46,7 @@ vi.mock("@/components/guest-gate", () => ({
 const persistedNotebook = {
   id: "11111111-1111-4111-8111-111111111111",
   owner_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  is_example: false,
   title: "Persisted research",
   created_at: "2026-08-14T09:00:00.000Z",
   updated_at: "2026-08-14T09:00:00.000Z",

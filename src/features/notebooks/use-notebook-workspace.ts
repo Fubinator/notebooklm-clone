@@ -35,7 +35,7 @@ export function useNotebookWorkspace({
   const [activeId, setActiveId] = useState(
     initialActiveId && initialNotebooks.some(({ id }) => id === initialActiveId)
       ? initialActiveId
-      : initialNotebooks[0]?.id,
+      : sortNotebooks(initialNotebooks)[0]?.id,
   );
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -66,7 +66,10 @@ export function useNotebookWorkspace({
     async (value: string): Promise<NotebookActionResult> => {
       const validation = validateNotebookTitle(value);
       if (!validation.ok) return validation;
-      if (!canCreateNotebook(notebooks.length)) {
+      const privateNotebookCount = notebooks.filter(
+        ({ is_example }) => !is_example,
+      ).length;
+      if (!canCreateNotebook(privateNotebookCount)) {
         return {
           ok: false,
           message: `A Guest can keep up to ${NOTEBOOK_LIMIT} Notebooks.`,
@@ -90,11 +93,15 @@ export function useNotebookWorkspace({
         setPending(false);
       }
     },
-    [guestId, navigate, notebooks.length, repository, showNotice],
+    [guestId, navigate, notebooks, repository, showNotice],
   );
 
   const rename = useCallback(
     async (id: string, value: string): Promise<NotebookActionResult> => {
+      if (notebooks.find((notebook) => notebook.id === id)?.is_example) {
+        return { ok: false, message: "The Example Notebook is read-only." };
+      }
+
       const validation = validateNotebookTitle(value);
       if (!validation.ok) return validation;
 
@@ -119,11 +126,15 @@ export function useNotebookWorkspace({
         setPending(false);
       }
     },
-    [repository, showNotice],
+    [notebooks, repository, showNotice],
   );
 
   const remove = useCallback(
     async (id: string): Promise<NotebookActionResult> => {
+      if (notebooks.find((notebook) => notebook.id === id)?.is_example) {
+        return { ok: false, message: "The Example Notebook is read-only." };
+      }
+
       setPending(true);
       try {
         await repository.remove(id);
@@ -150,7 +161,9 @@ export function useNotebookWorkspace({
   return {
     notebooks,
     activeNotebook: notebooks.find(({ id }) => id === activeId),
-    atLimit: !canCreateNotebook(notebooks.length),
+    atLimit: !canCreateNotebook(
+      notebooks.filter(({ is_example }) => !is_example).length,
+    ),
     pending,
     notice,
     select,
