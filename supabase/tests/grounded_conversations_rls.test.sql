@@ -61,7 +61,10 @@ insert into public.sources (
   embedding_provider,
   embedding_model,
   embedding_dimensions,
-  embedding_pooling
+  embedding_pooling,
+  failure_category,
+  retry_stage,
+  correlation_id
 )
 values
   (
@@ -77,7 +80,10 @@ values
     'cloudflare-workers-ai',
     '@cf/baai/bge-small-en-v1.5',
     384,
-    'cls'
+    'cls',
+    'processing_failed',
+    'embedding',
+    '40000000-0000-4000-8500-000000000099'
   ),
   (
     '40000000-0000-4000-8000-000000000032',
@@ -92,7 +98,10 @@ values
     'cloudflare-workers-ai',
     '@cf/baai/bge-small-en-v1.5',
     384,
-    'cls'
+    'cls',
+    null,
+    null,
+    null
   );
 
 insert into public.passages (

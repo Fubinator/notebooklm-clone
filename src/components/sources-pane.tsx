@@ -1,6 +1,13 @@
 "use client";
 
-import { FilePlus2, FileText, LoaderCircle, RefreshCw, X } from "lucide-react";
+import {
+  AlertTriangle,
+  FilePlus2,
+  FileText,
+  LoaderCircle,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { Notebook } from "@/features/notebooks/model";
@@ -17,6 +24,8 @@ export function SourcesPane({
   onSelect,
   onRetry,
   onClose,
+  onAdd,
+  onProcess,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -26,6 +35,8 @@ export function SourcesPane({
   onSelect: (sourceId: string) => void;
   onRetry: () => void;
   onClose: () => void;
+  onAdd: () => void;
+  onProcess: (sourceId: string) => void;
 }) {
   const drawerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -66,7 +77,8 @@ export function SourcesPane({
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <Button
           className="w-full"
-          disabled
+          disabled={!notebook || notebook.is_example || sources.length >= 5}
+          onClick={onAdd}
           aria-describedby={
             notebook?.is_example ? "example-sources-read-only" : undefined
           }
@@ -90,13 +102,14 @@ export function SourcesPane({
             selectedSourceId={selectedSourceId}
             onSelect={onSelect}
             onRetry={onRetry}
+            onProcess={onProcess}
           />
         </div>
         {notebook ? (
           <div className="rounded-xl border border-[var(--line)] bg-white/70 p-3 text-[11px] leading-4 text-[var(--muted)]">
             {notebook.is_example
               ? "Shared with every Guest · Content and Passages are immutable"
-              : "Up to 5 Sources per Notebook · 10 MB per PDF"}
+              : "Up to 5 Sources · Pasted text up to 50,000 characters"}
           </div>
         ) : null}
       </div>
@@ -111,6 +124,7 @@ function SourceListState({
   selectedSourceId,
   onSelect,
   onRetry,
+  onProcess,
 }: {
   notebook?: Notebook;
   sources: ReadableSource[];
@@ -118,6 +132,7 @@ function SourceListState({
   selectedSourceId?: string;
   onSelect: (sourceId: string) => void;
   onRetry: () => void;
+  onProcess: (sourceId: string) => void;
 }) {
   if (!notebook) {
     return (
@@ -181,32 +196,65 @@ function SourceListState({
   return (
     <div className="space-y-2">
       {sources.map((source) => (
-        <button
+        <div
           key={source.id}
           className={cn(
-            "w-full rounded-xl border bg-white p-3 text-left transition-colors hover:border-[var(--line-strong)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none",
+            "rounded-xl border bg-white p-3",
             selectedSourceId === source.id
               ? "border-[var(--accent-strong)]"
               : "border-[var(--line)]",
           )}
-          onClick={() => onSelect(source.id)}
-          aria-label={`Preview ${source.title}`}
         >
-          <span className="flex items-start gap-2.5">
-            <FileText className="mt-0.5 size-4 shrink-0 text-[var(--accent-strong)]" />
-            <span className="min-w-0">
-              <span className="block text-xs leading-5 font-semibold">
-                {source.title}
-              </span>
-              <span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
-                Ready · {source.passages.length} Passages · PDF
+          <button
+            className="w-full rounded-lg text-left focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none"
+            onClick={() => onSelect(source.id)}
+            aria-label={`Preview ${source.title}`}
+          >
+            <span className="flex items-start gap-2.5">
+              {source.processing_stage === "failed" ? (
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--danger)]" />
+              ) : (
+                <FileText className="mt-0.5 size-4 shrink-0 text-[var(--accent-strong)]" />
+              )}
+              <span className="min-w-0">
+                <span className="block text-xs leading-5 font-semibold">
+                  {source.title}
+                </span>
+                <span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
+                  {stageLabel(source.processing_stage)} ·{" "}
+                  {source.passages.length} Passages ·{" "}
+                  {source.kind === "pasted_text" ? "Pasted text" : "PDF"}
+                </span>
               </span>
             </span>
-          </span>
-        </button>
+          </button>
+          {source.processing_stage === "failed" ? (
+            <Button
+              className="mt-2 w-full"
+              size="sm"
+              variant="secondary"
+              onClick={() => onProcess(source.id)}
+            >
+              <RefreshCw className="size-3.5" /> Retry processing
+            </Button>
+          ) : null}
+        </div>
       ))}
     </div>
   );
+}
+
+function stageLabel(stage: ReadableSource["processing_stage"]) {
+  return (
+    {
+      uploaded: "Uploaded",
+      extracting: "Extracting",
+      chunking: "Building Passages",
+      embedding: "Embedding",
+      ready: "Ready",
+      failed: "Processing failed",
+    } as const
+  )[stage];
 }
 
 function SourceEmpty({ title, message }: { title: string; message: string }) {
