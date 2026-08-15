@@ -11,7 +11,14 @@ export type CloudflareChatCredentials = {
 
 type CloudflareChatResponse = {
   success?: boolean;
-  result?: { response?: unknown };
+  result?: {
+    response?: unknown;
+    usage?: {
+      prompt_tokens?: unknown;
+      completion_tokens?: unknown;
+      total_tokens?: unknown;
+    };
+  };
   errors?: Array<{ code?: unknown }>;
 };
 
@@ -32,6 +39,11 @@ export async function generateWithCloudflare(
   credentials: CloudflareChatCredentials,
   model = DEFAULT_CLOUDFLARE_ANSWER_MODEL,
   request: typeof fetch = fetch,
+  recordUsage?: (usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }) => void,
 ) {
   const response = await request(
     `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credentials.accountId)}/ai/run/${model}`,
@@ -61,6 +73,20 @@ export async function generateWithCloudflare(
   const payload = (await response.json()) as CloudflareChatResponse;
   if (!payload.success || payload.result?.response === undefined) {
     throw new Error("answer_provider_invalid_response");
+  }
+
+  const usage = payload.result.usage;
+  if (
+    usage &&
+    typeof usage.prompt_tokens === "number" &&
+    typeof usage.completion_tokens === "number" &&
+    typeof usage.total_tokens === "number"
+  ) {
+    recordUsage?.({
+      inputTokens: usage.prompt_tokens,
+      outputTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens,
+    });
   }
 
   return payload.result.response;

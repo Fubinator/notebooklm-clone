@@ -32,19 +32,31 @@ describe("Cloudflare Answer-model adapter", () => {
               answer: "Trustworthiness depends on context.",
               citation_ids: ["passage-1"],
             },
+            usage: {
+              prompt_tokens: 120,
+              completion_tokens: 30,
+              total_tokens: 150,
+            },
           },
         }),
       ),
     );
 
+    const recordUsage = vi.fn();
     await expect(
       generateWithCloudflare(
         input,
         { accountId: "account/id", apiToken: "secret-token" },
         "@cf/example/model",
         request,
+        recordUsage,
       ),
     ).resolves.toMatchObject({ citation_ids: ["passage-1"] });
+    expect(recordUsage).toHaveBeenCalledWith({
+      inputTokens: 120,
+      outputTokens: 30,
+      totalTokens: 150,
+    });
 
     expect(request).toHaveBeenCalledWith(
       "https://api.cloudflare.com/client/v4/accounts/account%2Fid/ai/run/@cf/example/model",

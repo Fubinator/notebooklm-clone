@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  deployments: read
 
 jobs:
   application:
@@ -24,6 +25,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:seed
       - run: pnpm build
 
   database-authorization:
@@ -31,6 +33,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm check:migrations
       - uses: supabase/setup-cli@v3
         with:
           version: latest
@@ -38,3 +46,49 @@ jobs:
       - run: supabase test db
       - if: always()
         run: supabase stop --no-backup
+
+  principal-browser-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Wait for this commit's Vercel deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          for attempt in $(seq 1 60); do
+            deployment_ids=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/deployments?sha=${DEPLOYMENT_SHA}&per_page=20" \
+              --jq '.[].id')
+
+            for deployment_id in $deployment_ids; do
+              deployment_url=$(gh api \
+                "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+                --jq '[.[] | select(.state == "success")][0].environment_url // empty')
+              if [ -n "$deployment_url" ]; then
+                echo "E2E_BASE_URL=$deployment_url" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            done
+
+            echo "Waiting for Vercel deployment for ${DEPLOYMENT_SHA} (attempt ${attempt}/60)"
+            sleep 5
+          done
+
+          echo "Vercel did not publish a successful deployment for ${DEPLOYMENT_SHA}." >&2
+          exit 1
+      - name: Require protected deployment automation configuration
+        run: |
+          test -n "$E2E_BASE_URL"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e

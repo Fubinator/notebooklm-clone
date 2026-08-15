@@ -11,10 +11,9 @@ set local role authenticated;
 set local request.jwt.claims =
   '{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","role":"authenticated","is_anonymous":true}';
 
+reset role;
 insert into public.notebooks (id, owner_id, title)
 values ('60000000-0000-4000-8000-000000000001', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Guest E research');
-
-reset role;
 
 insert into public.conversations (id, notebook_id, owner_id)
 values ('60000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000001', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');

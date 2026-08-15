@@ -7,6 +7,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation";
+import { getApplicationLimits } from "@/lib/limits";
+import { safeErrorCategory, writeStructuredLog } from "@/lib/structured-log";
 
 type CreateInput =
   | {
@@ -18,6 +20,8 @@ type CreateInput =
   | { kind: "pdf"; notebookId: unknown; title: unknown; file: File | null };
 
 export async function POST(request: Request) {
+  const correlationId = crypto.randomUUID();
+  const startedAt = performance.now();
   const supabase = await createClient();
   const {
     data: { user },
@@ -90,16 +94,7 @@ export async function POST(request: Request) {
       { status: 404 },
     );
 
-  const { count } = await admin
-    .from("sources")
-    .select("id", { count: "exact", head: true })
-    .eq("notebook_id", notebook.id);
-  if ((count ?? 0) >= 5)
-    return Response.json(
-      { error: "This Notebook already has 5 Sources." },
-      { status: 409 },
-    );
-
+  const sourceLimit = getApplicationLimits().sourcesPerNotebook;
   const sourceId = crypto.randomUUID();
   const storagePath =
     input.kind === "pdf"
@@ -123,35 +118,62 @@ export async function POST(request: Request) {
     input.kind === "pasted_text" && typeof input.content === "string"
       ? input.content
       : "";
-  const { data, error } = await admin
-    .from("sources")
-    .insert({
-      id: sourceId,
-      notebook_id: notebook.id,
-      title,
-      kind: input.kind,
-      content,
-      storage_path: storagePath,
-      processing_stage: "uploaded",
-      attribution: "Added by this Guest",
-      license_name: "Private Source",
-      license_url: "",
-      embedding_provider: CLOUDFLARE_EMBEDDING.provider,
-      embedding_model: CLOUDFLARE_EMBEDDING.model,
-      embedding_dimensions: CLOUDFLARE_EMBEDDING.dimensions,
-      embedding_pooling: CLOUDFLARE_EMBEDDING.pooling,
-    })
-    .select()
-    .single();
+  const { data: createdSources, error } = await admin.rpc(
+    "create_private_source",
+    {
+      target_guest_id: user.id,
+      target_source_id: sourceId,
+      target_notebook_id: notebook.id,
+      source_title: title,
+      source_kind: input.kind,
+      source_content: content,
+      source_storage_path: storagePath,
+      source_limit: sourceLimit,
+      source_embedding_provider: CLOUDFLARE_EMBEDDING.provider,
+      source_embedding_model: CLOUDFLARE_EMBEDDING.model,
+      source_embedding_dimensions: CLOUDFLARE_EMBEDDING.dimensions,
+      source_embedding_pooling: CLOUDFLARE_EMBEDDING.pooling,
+    },
+  );
+  const data = createdSources?.[0];
 
-  if (error) {
+  if (error || !data) {
     if (storagePath)
       await admin.storage.from("source-files").remove([storagePath]);
+    if (error?.message.includes("source_limit_reached"))
+      return Response.json(
+        { error: `This Notebook already has ${sourceLimit} Sources.` },
+        { status: 409 },
+      );
+    writeStructuredLog("error", {
+      operation: "source_creation",
+      correlationId,
+      guestId: user.id,
+      notebookId: notebook.id,
+      sourceId,
+      stage: "persist",
+      durationMs: Math.round(performance.now() - startedAt),
+      outcome: "failed",
+      category: safeErrorCategory(error),
+    });
     return Response.json(
       { error: "The Source could not be saved." },
       { status: 500 },
     );
   }
+  writeStructuredLog("info", {
+    operation: "source_creation",
+    correlationId,
+    guestId: user.id,
+    notebookId: notebook.id,
+    sourceId,
+    sourceKind: input.kind,
+    stage: "persist",
+    durationMs: Math.round(performance.now() - startedAt),
+    outcome: "created",
+    provider: CLOUDFLARE_EMBEDDING.provider,
+    model: CLOUDFLARE_EMBEDDING.model,
+  });
   return Response.json({ source: data }, { status: 201 });
 }
 

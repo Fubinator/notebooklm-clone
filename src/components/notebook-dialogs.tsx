@@ -14,7 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NOTEBOOK_LIMIT, type Notebook } from "@/features/notebooks/model";
+import { type Notebook } from "@/features/notebooks/model";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 type TitleDialogProps = {
   open: boolean;
@@ -26,7 +27,9 @@ type TitleDialogProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function CreateNotebookDialog(props: TitleDialogProps) {
+export function CreateNotebookDialog(
+  props: TitleDialogProps & { notebookLimit?: number },
+) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
@@ -43,7 +46,14 @@ export function CreateNotebookDialog(props: TitleDialogProps) {
           placeholder="e.g. Trustworthy AI systems"
           submitLabel="Create Notebook"
           pendingLabel="Creating…"
-          hint={<>Private to this Guest · {NOTEBOOK_LIMIT} Notebook limit</>}
+          hint={
+            <>
+              Private to this Guest ·{" "}
+              {props.notebookLimit ??
+                DEFAULT_APPLICATION_LIMITS.notebooksPerGuest}{" "}
+              Notebook limit
+            </>
+          }
         />
       </DialogContent>
     </Dialog>

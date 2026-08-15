@@ -18,10 +18,9 @@ set local request.jwt.claims =
   '{"sub":"abababab-abab-4bab-8bab-abababababab","role":"authenticated","is_anonymous":true}';
 set local request.jwt.claim.sub = 'abababab-abab-4bab-8bab-abababababab';
 
+reset role;
 insert into public.notebooks (id, owner_id, title)
 values ('60000000-0000-4000-8000-000000000001', 'abababab-abab-4bab-8bab-abababababab', 'Private PDF research');
-
-reset role;
 
 insert into public.sources (
   id, notebook_id, title, kind, attribution, license_name, license_url, content,

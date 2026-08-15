@@ -14,6 +14,7 @@ import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
 import type { SourceLoadState } from "@/features/sources/use-source-library";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function SourcesPane({
   visible,
@@ -26,6 +27,8 @@ export function SourcesPane({
   onClose,
   onAdd,
   onProcess,
+  sourceLimit = DEFAULT_APPLICATION_LIMITS.sourcesPerNotebook,
+  ingestionLimit = DEFAULT_APPLICATION_LIMITS.concurrentIngestionsPerGuest,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -37,6 +40,8 @@ export function SourcesPane({
   onClose: () => void;
   onAdd: () => void;
   onProcess: (sourceId: string) => void;
+  sourceLimit?: number;
+  ingestionLimit?: number;
 }) {
   const drawerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -63,7 +68,7 @@ export function SourcesPane({
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
-            {sources.length} / 5
+            {sources.length} / {sourceLimit}
           </span>
           <button
             className="rounded-lg p-1.5 text-[var(--muted)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none lg:hidden"
@@ -77,7 +82,9 @@ export function SourcesPane({
       <div className="flex min-h-0 flex-1 flex-col p-4">
         <Button
           className="w-full"
-          disabled={!notebook || notebook.is_example || sources.length >= 5}
+          disabled={
+            !notebook || notebook.is_example || sources.length >= sourceLimit
+          }
           onClick={onAdd}
           aria-describedby={
             notebook?.is_example ? "example-sources-read-only" : undefined
@@ -109,7 +116,7 @@ export function SourcesPane({
           <div className="rounded-xl border border-[var(--line)] bg-white/70 p-3 text-[11px] leading-4 text-[var(--muted)]">
             {notebook.is_example
               ? "Shared with every Guest · Content and Passages are immutable"
-              : "Up to 5 Sources · PDF up to 10 MB / 50 pages · Text up to 50,000 characters"}
+              : `Up to ${sourceLimit} Sources · processes ${ingestionLimit} at a time · PDF up to 10 MB / 50 pages · Text up to 50,000 characters`}
           </div>
         ) : null}
       </div>

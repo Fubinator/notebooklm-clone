@@ -32,6 +32,13 @@ export type IngestionPassage = BuiltPassage & {
 };
 
 export type SourceIngestionPersistence = {
+  acquireLease(
+    sourceId: string,
+    correlationId: string,
+    concurrentLimit: number,
+  ): Promise<void>;
+  renewLease(sourceId: string, correlationId: string): Promise<void>;
+  releaseLease(sourceId: string, correlationId: string): Promise<void>;
   load(sourceId: string): Promise<IngestionSource>;
   transition(
     sourceId: string,
@@ -61,12 +68,64 @@ export async function advanceSource(
   dependencies: {
     persistence: SourceIngestionPersistence;
     embed: (texts: string[]) => Promise<number[][]>;
+    concurrentLimit: number;
+  },
+) {
+  await dependencies.persistence.acquireLease(
+    sourceId,
+    correlationId,
+    dependencies.concurrentLimit,
+  );
+  let leaseLost = false;
+  let renewalInFlight = false;
+  const renewLease = async () => {
+    if (leaseLost) throw new Error("ingestion_lease_lost");
+    try {
+      await dependencies.persistence.renewLease(sourceId, correlationId);
+    } catch {
+      leaseLost = true;
+      throw new Error("ingestion_lease_lost");
+    }
+  };
+  const heartbeat = setInterval(() => {
+    if (renewalInFlight || leaseLost) return;
+    renewalInFlight = true;
+    void renewLease()
+      .catch(() => {
+        leaseLost = true;
+      })
+      .finally(() => {
+        renewalInFlight = false;
+      });
+  }, 30_000);
+  const assertLease = async () => {
+    await renewLease();
+  };
+  try {
+    return await advanceSourceStage(sourceId, correlationId, {
+      ...dependencies,
+      assertLease,
+    });
+  } finally {
+    clearInterval(heartbeat);
+    await dependencies.persistence.releaseLease(sourceId, correlationId);
+  }
+}
+
+async function advanceSourceStage(
+  sourceId: string,
+  correlationId: string,
+  dependencies: {
+    persistence: SourceIngestionPersistence;
+    embed: (texts: string[]) => Promise<number[][]>;
+    assertLease: () => Promise<void>;
   },
 ) {
   let source = await dependencies.persistence.load(sourceId);
   if (source.processingStage === "ready") return source;
 
   if (source.processingStage === "failed") {
+    await dependencies.assertLease();
     source = await dependencies.persistence.transition(
       sourceId,
       "failed",
@@ -77,12 +136,15 @@ export async function advanceSource(
 
   if (source.processingStage === "uploaded") {
     try {
+      await dependencies.assertLease();
       return await dependencies.persistence.transition(
         sourceId,
         "uploaded",
         "extracting",
       );
     } catch (error) {
+      if (isIngestionLeaseLost(error)) throw error;
+      await dependencies.assertLease();
       return dependencies.persistence.markFailed(
         sourceId,
         "extracting",
@@ -99,6 +161,7 @@ export async function advanceSource(
         const pages = await pdfReader.read(
           await dependencies.persistence.loadOriginal(sourceId),
         );
+        await dependencies.assertLease();
         await dependencies.persistence.saveExtractedContent(
           sourceId,
           serializePdfPages(pages),
@@ -106,6 +169,7 @@ export async function advanceSource(
       } else {
         pastedTextReader.read(source.content);
       }
+      await dependencies.assertLease();
       return dependencies.persistence.transition(
         sourceId,
         "extracting",
@@ -119,7 +183,9 @@ export async function advanceSource(
           ? buildPdfPassages(deserializePdfPages(source.content))
           : buildPassages(pastedTextReader.read(source.content));
       if (!passages.length) throw new Error("source_content_empty");
+      await dependencies.assertLease();
       await dependencies.persistence.replacePassages(sourceId, passages);
+      await dependencies.assertLease();
       return dependencies.persistence.transition(
         sourceId,
         "chunking",
@@ -146,6 +212,7 @@ export async function advanceSource(
       ) {
         throw new Error("embedding_provider_dimension_mismatch");
       }
+      await dependencies.assertLease();
       await dependencies.persistence.saveEmbeddings(
         sourceId,
         batch.map((passage, index) => ({
@@ -154,8 +221,11 @@ export async function advanceSource(
         })),
       );
     }
+    await dependencies.assertLease();
     return dependencies.persistence.markReady(sourceId);
   } catch (error) {
+    if (isIngestionLeaseLost(error)) throw error;
+    await dependencies.assertLease();
     return dependencies.persistence.markFailed(
       sourceId,
       retryStage,
@@ -163,6 +233,10 @@ export async function advanceSource(
       correlationId,
     );
   }
+}
+
+function isIngestionLeaseLost(error: unknown) {
+  return error instanceof Error && error.message === "ingestion_lease_lost";
 }
 
 export function safeIngestionCategory(error: unknown) {

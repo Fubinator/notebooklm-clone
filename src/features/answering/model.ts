@@ -23,6 +23,9 @@ export type AnswerModel = {
   provider: string;
   model: string;
   generate(request: AnswerModelRequest): Promise<unknown>;
+  tokenUsage?():
+    | { inputTokens: number; outputTokens: number; totalTokens: number }
+    | undefined;
 };
 
 export type ValidatedModelAnswer =

@@ -37,7 +37,7 @@ export async function answerGroundedQuestion(
     );
 
     if (evidence.length === 0) {
-      await persistInsufficientEvidence(pending, dependencies);
+      await persistInsufficientEvidence(pending, dependencies, false);
       return { status: "completed", kind: "insufficient_evidence" };
     }
 
@@ -65,7 +65,7 @@ export async function answerGroundedQuestion(
     }
 
     if (validation.value.kind === "insufficient_evidence") {
-      await persistInsufficientEvidence(pending, dependencies);
+      await persistInsufficientEvidence(pending, dependencies, true);
       return { status: "completed", kind: "insufficient_evidence" };
     }
 
@@ -99,13 +99,14 @@ async function persistValidatedAnswer(
 async function persistInsufficientEvidence(
   pending: PendingAnswer,
   dependencies: GroundedAnsweringDependencies,
+  usedModel: boolean,
 ) {
   await dependencies.persistence.complete({
     answerId: pending.answerId,
     content: INSUFFICIENT_EVIDENCE_ANSWER,
     kind: "insufficient_evidence",
-    provider: null,
-    model: null,
+    provider: usedModel ? dependencies.answerModel.provider : null,
+    model: usedModel ? dependencies.answerModel.model : null,
     citationIds: [],
   });
 }

@@ -54,6 +54,31 @@ export function createSourceIngestionPersistence(
   }
 
   return {
+    async acquireLease(sourceId, correlationId, concurrentLimit) {
+      const { error } = await supabase.rpc("acquire_ingestion_lease", {
+        target_guest_id: guestId,
+        target_source_id: sourceId,
+        request_correlation_id: correlationId,
+        concurrent_limit: concurrentLimit,
+      });
+      if (error) throw error;
+    },
+    async renewLease(sourceId, correlationId) {
+      const { error } = await supabase.rpc("renew_ingestion_lease", {
+        target_guest_id: guestId,
+        target_source_id: sourceId,
+        request_correlation_id: correlationId,
+      });
+      if (error) throw error;
+    },
+    async releaseLease(sourceId, correlationId) {
+      const { error } = await supabase.rpc("release_ingestion_lease", {
+        target_guest_id: guestId,
+        target_source_id: sourceId,
+        request_correlation_id: correlationId,
+      });
+      if (error) throw error;
+    },
     load,
     transition,
     async loadOriginal(sourceId) {

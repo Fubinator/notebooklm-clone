@@ -17,18 +17,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  displayGuestId,
-  NOTEBOOK_LIMIT,
-  type Notebook,
-} from "@/features/notebooks/model";
+import { displayGuestId, type Notebook } from "@/features/notebooks/model";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function NotebookHeader({
   guestId,
   notebooks,
   activeNotebook,
   atLimit,
+  notebookLimit = DEFAULT_APPLICATION_LIMITS.notebooksPerGuest,
   onSelect,
   onCreate,
   onRename,
@@ -38,6 +36,7 @@ export function NotebookHeader({
   notebooks: Notebook[];
   activeNotebook?: Notebook;
   atLimit: boolean;
+  notebookLimit?: number;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: () => void;
@@ -67,7 +66,7 @@ export function NotebookHeader({
                 <span className="hidden text-[11px] text-[var(--muted-light)] sm:block">
                   {activeNotebook?.is_example
                     ? "Example · read-only"
-                    : `${privateNotebooks.length}/${NOTEBOOK_LIMIT} private`}
+                    : `${privateNotebooks.length}/${notebookLimit} private`}
                 </span>
               </span>
               <ChevronDown className="size-3.5 shrink-0 text-[var(--muted)]" />

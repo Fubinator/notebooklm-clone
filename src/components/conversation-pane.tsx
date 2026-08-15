@@ -12,6 +12,7 @@ import type { ConversationLoadState } from "@/features/conversations/use-convers
 import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function ConversationPane({
   visible,
@@ -30,6 +31,7 @@ export function ConversationPane({
   savedAnswerIds,
   savingAnswerId,
   onSaveAnswer,
+  dailyQuestionLimit = DEFAULT_APPLICATION_LIMITS.questionsPerGuestPerUtcDay,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -47,6 +49,7 @@ export function ConversationPane({
   savedAnswerIds: Set<string>;
   savingAnswerId?: string;
   onSaveAnswer: (answer: ConversationMessage) => void;
+  dailyQuestionLimit?: number;
 }) {
   return (
     <section
@@ -63,7 +66,7 @@ export function ConversationPane({
           <h2 className="text-sm font-semibold">Conversation</h2>
         </div>
         <span className="rounded-full bg-[var(--sage)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
-          Grounded in Sources
+          {dailyQuestionLimit}/day · Grounded
         </span>
       </div>
       {source ? (

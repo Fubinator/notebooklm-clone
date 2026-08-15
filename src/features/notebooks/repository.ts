@@ -1,5 +1,3 @@
-import { createClient } from "@/lib/supabase/client";
-
 import type { Notebook } from "./model";
 
 export type NotebookRepository = {
@@ -9,35 +7,38 @@ export type NotebookRepository = {
 };
 
 export function createNotebookRepository(): NotebookRepository {
-  const supabase = createClient();
-
   return {
-    async create({ ownerId, title }) {
-      const { data, error } = await supabase
-        .from("notebooks")
-        .insert({ owner_id: ownerId, title })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+    async create({ title }) {
+      return notebookRequest("POST", { title });
     },
 
     async rename({ id, title }) {
-      const { data, error } = await supabase
-        .from("notebooks")
-        .update({ title })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return notebookRequest("PATCH", { id, title });
     },
 
     async remove(id) {
-      const { error } = await supabase.from("notebooks").delete().eq("id", id);
-      if (error) throw error;
+      await notebookRequest("DELETE", { id }, false);
     },
   };
+}
+
+async function notebookRequest(
+  method: "POST" | "PATCH" | "DELETE",
+  body: { id?: string; title?: string },
+  expectsNotebook = true,
+) {
+  const response = await fetch("/api/notebooks", {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    notebook?: Notebook;
+    error?: string;
+  } | null;
+  if (!response.ok)
+    throw new Error(payload?.error ?? "Notebook request failed.");
+  if (!expectsNotebook) return undefined as never;
+  if (!payload?.notebook) throw new Error("Notebook response was invalid.");
+  return payload.notebook;
 }
