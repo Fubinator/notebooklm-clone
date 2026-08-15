@@ -106,16 +106,22 @@ The private shareable URL is the reviewer's access credential. Do not publish it
 
 ## Prepared demo material
 
-Before recording, prepare:
+Generate the project-authored ingestion fixture before rehearsing:
 
-- One comparison Question supported by at least two Example Notebook Sources
-- One Question supported by a single precise Passage
-- One unsupported Question that should be refused
-- One small, known-good PDF for live ingestion
-- One pasted-text fallback
+```bash
+pnpm demo:prepare
+```
+
+Use these exact materials:
+
+- Multi-Source comparison Question: **How do the AI RMF's lifecycle functions and the Generative AI Profile's recommendations work together to reduce the risk of confident false answers?**
+- Precise single-Passage Question: **What four functions make up the AI RMF Core?** (expected location: AI RMF 1.0, PDF page 20)
+- Unsupported Question: **What is the capital of France?** (expected result: insufficient evidence, with no model call)
+- Known-good PDF: `demo/known-good-source.pdf`, generated deterministically by `pnpm demo:prepare`
+- Pasted-text fallback: `demo/pasted-text-fallback.md`
 - One already processed private Notebook in case a provider is temporarily slow
 
-The final Example Notebook should contain two or three legally reusable technical Sources about building trustworthy AI applications. Source selection remains an explicit pre-seed decision in [ARCHITECTURE.md](./ARCHITECTURE.md).
+The final Example Notebook contains two legally reusable, attributed NIST technical Sources about building trustworthy AI applications. Their DOI, authorship, and NIST Technical Series reuse terms appear in the Source inspector and committed seed.
 
 ## Recording rules
 

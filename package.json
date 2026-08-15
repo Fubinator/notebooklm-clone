@@ -16,6 +16,7 @@
     "test:seed": "vitest run scripts/generate-example-seed.test.mjs",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
+    "demo:prepare": "node scripts/generate-demo-pdf.mjs",
     "seed:example": "node --env-file-if-exists=.env.local scripts/generate-example-seed.mjs"
   },
   "dependencies": {
