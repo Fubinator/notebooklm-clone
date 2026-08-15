@@ -1,7 +1,7 @@
 import type { Notebook } from "./model";
 
 export type NotebookRepository = {
-  create(input: { ownerId: string; title: string }): Promise<Notebook>;
+  create(input: { title: string }): Promise<Notebook>;
   rename(input: { id: string; title: string }): Promise<Notebook>;
   remove(id: string): Promise<void>;
 };

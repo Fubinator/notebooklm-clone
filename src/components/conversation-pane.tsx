@@ -86,6 +86,7 @@ export function ConversationPane({
           savedAnswerIds={savedAnswerIds}
           savingAnswerId={savingAnswerId}
           onSaveAnswer={onSaveAnswer}
+          dailyQuestionLimit={dailyQuestionLimit}
         />
       ) : (
         <NoNotebook onCreate={onCreate} />

@@ -612,7 +612,6 @@ describe("Notebook workspace", () => {
 
     await waitFor(() =>
       expect(mocks.create).toHaveBeenCalledWith({
-        ownerId: first.owner_id,
         title: "New research",
       }),
     );

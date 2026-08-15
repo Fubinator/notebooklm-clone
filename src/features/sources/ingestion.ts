@@ -4,10 +4,13 @@ import { CLOUDFLARE_EMBEDDING } from "./cloudflare-embedding";
 import {
   buildPassages,
   buildPdfPassages,
+  PASSAGE_OVERLAP_CHARACTERS,
+  PASSAGE_TARGET_CHARACTERS,
   type BuiltPassage,
 } from "./passage-builder";
 import {
   deserializePdfPages,
+  PDF_PAGE_LIMIT,
   pastedTextReader,
   pdfReader,
   serializePdfPages,
@@ -69,6 +72,9 @@ export async function advanceSource(
     persistence: SourceIngestionPersistence;
     embed: (texts: string[]) => Promise<number[][]>;
     concurrentLimit: number;
+    pdfPageLimit?: number;
+    passageTargetCharacters?: number;
+    passageOverlapCharacters?: number;
   },
 ) {
   await dependencies.persistence.acquireLease(
@@ -104,6 +110,11 @@ export async function advanceSource(
   try {
     return await advanceSourceStage(sourceId, correlationId, {
       ...dependencies,
+      pdfPageLimit: dependencies.pdfPageLimit ?? PDF_PAGE_LIMIT,
+      passageTargetCharacters:
+        dependencies.passageTargetCharacters ?? PASSAGE_TARGET_CHARACTERS,
+      passageOverlapCharacters:
+        dependencies.passageOverlapCharacters ?? PASSAGE_OVERLAP_CHARACTERS,
       assertLease,
     });
   } finally {
@@ -118,6 +129,9 @@ async function advanceSourceStage(
   dependencies: {
     persistence: SourceIngestionPersistence;
     embed: (texts: string[]) => Promise<number[][]>;
+    pdfPageLimit: number;
+    passageTargetCharacters: number;
+    passageOverlapCharacters: number;
     assertLease: () => Promise<void>;
   },
 ) {
@@ -160,6 +174,7 @@ async function advanceSourceStage(
       if (source.kind === "pdf") {
         const pages = await pdfReader.read(
           await dependencies.persistence.loadOriginal(sourceId),
+          dependencies.pdfPageLimit,
         );
         await dependencies.assertLease();
         await dependencies.persistence.saveExtractedContent(
@@ -180,8 +195,15 @@ async function advanceSourceStage(
     if (source.processingStage === "chunking") {
       const passages =
         source.kind === "pdf"
-          ? buildPdfPassages(deserializePdfPages(source.content))
-          : buildPassages(pastedTextReader.read(source.content));
+          ? buildPdfPassages(
+              deserializePdfPages(source.content),
+              dependencies.passageTargetCharacters,
+              dependencies.passageOverlapCharacters,
+            )
+          : buildPassages(
+              pastedTextReader.read(source.content),
+              dependencies.passageTargetCharacters,
+            );
       if (!passages.length) throw new Error("source_content_empty");
       await dependencies.assertLease();
       await dependencies.persistence.replacePassages(sourceId, passages);

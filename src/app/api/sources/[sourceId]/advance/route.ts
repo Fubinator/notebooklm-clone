@@ -24,11 +24,15 @@ export async function POST(
   const correlationId = crypto.randomUUID();
   const startedAt = performance.now();
   const admin = createAdminClient();
+  const limits = getApplicationLimits();
   try {
     const source = await advanceSource(sourceId, correlationId, {
       persistence: createSourceIngestionPersistence(admin, user.id),
       embed: embedTexts,
-      concurrentLimit: getApplicationLimits().concurrentIngestionsPerGuest,
+      concurrentLimit: limits.concurrentIngestionsPerGuest,
+      pdfPageLimit: limits.pdfPages,
+      passageTargetCharacters: limits.passageTargetCharacters,
+      passageOverlapCharacters: limits.passageOverlapCharacters,
     });
     writeStructuredLog("info", {
       operation: "source_ingestion",

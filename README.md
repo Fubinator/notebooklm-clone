@@ -86,6 +86,11 @@ NOTEBOOKS_PER_GUEST=5
 SOURCES_PER_NOTEBOOK=5
 CONCURRENT_INGESTIONS_PER_GUEST=1
 QUESTIONS_PER_GUEST_PER_UTC_DAY=20
+PASTED_TEXT_CHARACTER_LIMIT=50000
+PDF_BYTE_LIMIT=10485760
+PDF_PAGE_LIMIT=50
+PASSAGE_TARGET_CHARACTERS=900
+PASSAGE_OVERLAP_CHARACTERS=150
 DEPLOYMENT_QUESTION_HARD_CEILING=1000
 ```
 
@@ -99,7 +104,7 @@ For a hosted project:
 4. Copy the Project URL and publishable key from the project’s **Connect** dialog into `.env.local`.
 5. Add the server-only service-role key from **Project Settings → API Keys** to the deployment environment.
 
-Keep the Supabase service-role key server-only; Grounded Answering uses it after authenticating the Guest so its mutation functions are not callable from the browser. Ordinary reads and Notebook CRUD still run as the authenticated Guest under RLS. Restrict the Cloudflare token to `Workers AI Read` on the selected account and keep both Cloudflare values server-only.
+Keep the Supabase service-role key server-only. Grounded Answering, Source creation, and quota-checked Notebook mutations use it only after authenticating the Guest and rechecking ownership. Ordinary reads and Notes CRUD run as the authenticated Guest under RLS. Restrict the Cloudflare token to `Workers AI Read` on the selected account and keep both Cloudflare values server-only.
 
 ### Model providers
 

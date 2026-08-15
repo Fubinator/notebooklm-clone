@@ -49,5 +49,13 @@ test("a fresh Guest asks a grounded Question and inspects its Citation", async (
   await expect(citation).toBeVisible({ timeout: 45_000 });
   await citation.click();
 
-  await expect(page.getByLabel("Citation 1 inspector")).toContainText("AI RMF");
+  const inspector = page.getByLabel("Citation 1 inspector");
+  await expect(inspector).toContainText("AI RMF");
+  await expect(inspector).toContainText(/PDF page \d+/);
+  await expect(inspector).toContainText(
+    /The AI RMF Core provides outcomes|Trustworthy AI systems and their responsible use|Generative AI risks vary|Information integrity describes/,
+  );
+  await expect(inspector).toContainText(
+    "This is the exact stored Passage validated for the Answer.",
+  );
 });

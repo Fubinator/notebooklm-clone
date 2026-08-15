@@ -1,9 +1,5 @@
 import { CLOUDFLARE_EMBEDDING } from "@/features/sources/cloudflare-embedding";
-import {
-  PDF_BYTE_LIMIT,
-  readPdf,
-  validatePastedText,
-} from "@/features/sources/source-reader";
+import { readPdf, validatePastedText } from "@/features/sources/source-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation";
@@ -33,6 +29,7 @@ export async function POST(request: Request) {
     );
 
   const input = await parseInput(request);
+  const limits = getApplicationLimits();
   if (!input)
     return Response.json(
       { error: "The Source request was invalid." },
@@ -58,6 +55,7 @@ export async function POST(request: Request) {
   if (input.kind === "pasted_text") {
     const validation = validatePastedText(
       typeof input.content === "string" ? input.content : "",
+      limits.pastedTextCharacters,
     );
     if (!validation.ok)
       return Response.json({ error: validation.message }, { status: 400 });
@@ -67,16 +65,21 @@ export async function POST(request: Request) {
         { error: "Choose a non-empty PDF to upload." },
         { status: 400 },
       );
-    if (input.file.size > PDF_BYTE_LIMIT)
+    if (input.file.size > limits.pdfBytes)
       return Response.json(
-        { error: "PDFs must be 10 MB or smaller." },
+        {
+          error: `PDFs must be ${formatMegabytes(limits.pdfBytes)} MB or smaller.`,
+        },
         { status: 413 },
       );
     pdfBytes = new Uint8Array(await input.file.arrayBuffer());
     try {
-      await readPdf(pdfBytes);
+      await readPdf(pdfBytes, limits.pdfPages);
     } catch (error) {
-      return Response.json({ error: pdfFeedback(error) }, { status: 400 });
+      return Response.json(
+        { error: pdfFeedback(error, limits.pdfPages) },
+        { status: 400 },
+      );
     }
   }
 
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
       { status: 404 },
     );
 
-  const sourceLimit = getApplicationLimits().sourcesPerNotebook;
+  const sourceLimit = limits.sourcesPerNotebook;
   const sourceId = crypto.randomUUID();
   const storagePath =
     input.kind === "pdf"
@@ -177,6 +180,10 @@ export async function POST(request: Request) {
   return Response.json({ source: data }, { status: 201 });
 }
 
+function formatMegabytes(bytes: number) {
+  return Number((bytes / 1024 / 1024).toFixed(2));
+}
+
 async function parseInput(request: Request): Promise<CreateInput | null> {
   try {
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
@@ -205,7 +212,7 @@ async function parseInput(request: Request): Promise<CreateInput | null> {
   }
 }
 
-function pdfFeedback(error: unknown) {
+function pdfFeedback(error: unknown, pageLimit: number) {
   const category = error instanceof Error ? error.message : "pdf_unreadable";
   return (
     (
@@ -216,7 +223,7 @@ function pdfFeedback(error: unknown) {
           "That PDF has no readable text. Scanned or empty PDFs are not supported.",
         pdf_encrypted:
           "That PDF is password-protected. Remove the password and try again.",
-        pdf_page_limit: "PDFs must contain 50 pages or fewer.",
+        pdf_page_limit: `PDFs must contain ${pageLimit} pages or fewer.`,
         pdf_unreadable:
           "That PDF is damaged or unreadable. Export a new copy and try again.",
       } as Record<string, string>

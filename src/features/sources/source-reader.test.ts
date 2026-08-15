@@ -27,6 +27,8 @@ describe("pasted-text Source Reader", () => {
     expect(
       validatePastedText("a".repeat(PASTED_TEXT_CHARACTER_LIMIT + 1)).ok,
     ).toBe(false);
+    expect(validatePastedText("abcd", 4).ok).toBe(true);
+    expect(validatePastedText("abcde", 4).ok).toBe(false);
   });
 
   it("builds ordered overlapping Passages with paragraph ranges", () => {
