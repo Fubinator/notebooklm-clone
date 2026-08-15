@@ -14,6 +14,7 @@ import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
 import type { SourceLoadState } from "@/features/sources/use-source-library";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function SourcesPane({
   visible,
@@ -26,7 +27,8 @@ export function SourcesPane({
   onClose,
   onAdd,
   onProcess,
-  sourceLimit = 5,
+  sourceLimit = DEFAULT_APPLICATION_LIMITS.sourcesPerNotebook,
+  ingestionLimit = DEFAULT_APPLICATION_LIMITS.concurrentIngestionsPerGuest,
 }: {
   visible: boolean;
   notebook?: Notebook;
@@ -39,6 +41,7 @@ export function SourcesPane({
   onAdd: () => void;
   onProcess: (sourceId: string) => void;
   sourceLimit?: number;
+  ingestionLimit?: number;
 }) {
   const drawerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -113,7 +116,7 @@ export function SourcesPane({
           <div className="rounded-xl border border-[var(--line)] bg-white/70 p-3 text-[11px] leading-4 text-[var(--muted)]">
             {notebook.is_example
               ? "Shared with every Guest · Content and Passages are immutable"
-              : `Up to ${sourceLimit} Sources · PDF up to 10 MB / 50 pages · Text up to 50,000 characters`}
+              : `Up to ${sourceLimit} Sources · processes ${ingestionLimit} at a time · PDF up to 10 MB / 50 pages · Text up to 50,000 characters`}
           </div>
         ) : null}
       </div>

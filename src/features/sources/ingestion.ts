@@ -32,6 +32,13 @@ export type IngestionPassage = BuiltPassage & {
 };
 
 export type SourceIngestionPersistence = {
+  acquireLease(
+    sourceId: string,
+    correlationId: string,
+    concurrentLimit: number,
+  ): Promise<void>;
+  renewLease(sourceId: string, correlationId: string): Promise<void>;
+  releaseLease(sourceId: string, correlationId: string): Promise<void>;
   load(sourceId: string): Promise<IngestionSource>;
   transition(
     sourceId: string,
@@ -56,6 +63,35 @@ export type SourceIngestionPersistence = {
 };
 
 export async function advanceSource(
+  sourceId: string,
+  correlationId: string,
+  dependencies: {
+    persistence: SourceIngestionPersistence;
+    embed: (texts: string[]) => Promise<number[][]>;
+    concurrentLimit: number;
+  },
+) {
+  await dependencies.persistence.acquireLease(
+    sourceId,
+    correlationId,
+    dependencies.concurrentLimit,
+  );
+  const heartbeat = setInterval(
+    () =>
+      void dependencies.persistence
+        .renewLease(sourceId, correlationId)
+        .catch(() => undefined),
+    30_000,
+  );
+  try {
+    return await advanceSourceStage(sourceId, correlationId, dependencies);
+  } finally {
+    clearInterval(heartbeat);
+    await dependencies.persistence.releaseLease(sourceId, correlationId);
+  }
+}
+
+async function advanceSourceStage(
   sourceId: string,
   correlationId: string,
   dependencies: {

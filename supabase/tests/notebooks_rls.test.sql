@@ -67,12 +67,16 @@ select is(
   'Every seeded Passage retains its PDF page location'
 );
 
+reset role;
 insert into public.notebooks (id, owner_id, title)
 values (
   '11111111-1111-4111-8111-111111111111',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'Guest A research'
 );
+set local role authenticated;
+set local request.jwt.claims =
+  '{"sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","role":"authenticated","is_anonymous":true}';
 
 select is(
   (select count(*)::integer from public.notebooks),
@@ -179,7 +183,7 @@ select throws_ok(
 select throws_ok(
   $$insert into public.notebooks (owner_id, is_example, title) values (null, true, 'Injected Example')$$,
   '42501',
-  'notebook_owner_mismatch',
+  'permission denied for table notebooks',
   'Guests cannot create another Example Notebook'
 );
 
@@ -200,7 +204,7 @@ select is(
 select throws_ok(
   $$insert into public.notebooks (owner_id, title) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Wrong owner')$$,
   '42501',
-  'notebook_owner_mismatch',
+  'permission denied for table notebooks',
   'A Guest cannot create a Notebook for another owner'
 );
 

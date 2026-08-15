@@ -12,6 +12,7 @@ import type { ConversationLoadState } from "@/features/conversations/use-convers
 import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function ConversationPane({
   visible,
@@ -30,7 +31,7 @@ export function ConversationPane({
   savedAnswerIds,
   savingAnswerId,
   onSaveAnswer,
-  dailyQuestionLimit = 20,
+  dailyQuestionLimit = DEFAULT_APPLICATION_LIMITS.questionsPerGuestPerUtcDay,
 }: {
   visible: boolean;
   notebook?: Notebook;

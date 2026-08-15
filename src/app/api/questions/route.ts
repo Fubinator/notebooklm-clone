@@ -55,12 +55,12 @@ export async function POST(request: Request) {
 
   const correlationId = crypto.randomUUID();
   const startedAt = performance.now();
+  const answerModel = createAnswerModel();
   try {
     const admin = createAdminClient();
     const limits = getApplicationLimits();
     const deploymentHardCeiling = getDeploymentQuestionCeiling();
 
-    const answerModel = createAnswerModel();
     const result = await answerGroundedQuestion(
       {
         notebookId: body.notebookId,
@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       },
     );
 
+    const tokenUsage = answerModel.tokenUsage?.();
     writeStructuredLog("info", {
       operation: "grounded_answering",
       correlationId,
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
       answerKind: result.kind,
       provider: answerModel.provider,
       model: answerModel.model,
+      ...(tokenUsage ?? {}),
     });
 
     return Response.json({ result }, { status: 201 });
@@ -103,6 +105,8 @@ export async function POST(request: Request) {
       durationMs: Math.round(performance.now() - startedAt),
       outcome: "failed",
       category: safeErrorCategory(error),
+      provider: answerModel.provider,
+      model: answerModel.model,
       ...(error instanceof AnswerProviderRequestError
         ? {
             providerStatus: error.status,

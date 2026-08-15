@@ -39,7 +39,10 @@ import {
   validatePastedText,
 } from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
-import type { ApplicationLimits } from "@/lib/limits";
+import {
+  DEFAULT_APPLICATION_LIMITS,
+  type ApplicationLimits,
+} from "@/lib/limits";
 
 type WorkspaceProps = {
   guestId: string;
@@ -54,12 +57,7 @@ export function NotebookWorkspace({
   initialNotebooks,
   initialActiveId,
   initialError,
-  limits = {
-    notebooksPerGuest: 5,
-    sourcesPerNotebook: 5,
-    concurrentIngestionsPerGuest: 1,
-    questionsPerGuestPerUtcDay: 20,
-  },
+  limits = DEFAULT_APPLICATION_LIMITS,
 }: WorkspaceProps) {
   const router = useRouter();
   const repository = useMemo(() => createNotebookRepository(), []);
@@ -302,6 +300,7 @@ export function NotebookWorkspace({
           }}
           onProcess={(sourceId) => void sourceLibrary.process(sourceId)}
           sourceLimit={limits.sourcesPerNotebook}
+          ingestionLimit={limits.concurrentIngestionsPerGuest}
         />
         <ConversationPane
           visible

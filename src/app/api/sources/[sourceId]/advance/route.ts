@@ -24,20 +24,11 @@ export async function POST(
   const correlationId = crypto.randomUUID();
   const startedAt = performance.now();
   const admin = createAdminClient();
-  let leaseAcquired = false;
   try {
-    const { error: leaseError } = await admin.rpc("acquire_ingestion_lease", {
-      target_guest_id: user.id,
-      target_source_id: sourceId,
-      request_correlation_id: correlationId,
-      concurrent_limit: getApplicationLimits().concurrentIngestionsPerGuest,
-    });
-    if (leaseError) throw leaseError;
-    leaseAcquired = true;
-
     const source = await advanceSource(sourceId, correlationId, {
       persistence: createSourceIngestionPersistence(admin, user.id),
       embed: embedTexts,
+      concurrentLimit: getApplicationLimits().concurrentIngestionsPerGuest,
     });
     writeStructuredLog("info", {
       operation: "source_ingestion",
@@ -79,15 +70,5 @@ export async function POST(
       { error: "The Source could not be processed safely." },
       { status: 500 },
     );
-  } finally {
-    if (leaseAcquired) {
-      await admin
-        .rpc("release_ingestion_lease", {
-          target_guest_id: user.id,
-          target_source_id: sourceId,
-          request_correlation_id: correlationId,
-        })
-        .then(() => undefined);
-    }
   }
 }

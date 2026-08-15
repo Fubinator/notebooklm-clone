@@ -47,7 +47,6 @@ jobs:
         run: supabase stop --no-backup
 
   principal-browser-journey:
-    if: ${{ vars.E2E_BASE_URL != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -55,6 +54,10 @@ jobs:
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
       - uses: actions/checkout@v7
+      - name: Require protected deployment automation configuration
+        run: |
+          test -n "$E2E_BASE_URL"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:

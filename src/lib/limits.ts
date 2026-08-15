@@ -5,7 +5,7 @@ export type ApplicationLimits = {
   questionsPerGuestPerUtcDay: number;
 };
 
-const DEFAULT_LIMITS: ApplicationLimits = {
+export const DEFAULT_APPLICATION_LIMITS: ApplicationLimits = {
   notebooksPerGuest: 5,
   sourcesPerNotebook: 5,
   concurrentIngestionsPerGuest: 1,
@@ -16,19 +16,19 @@ export function getApplicationLimits(): ApplicationLimits {
   return {
     notebooksPerGuest: positiveInteger(
       process.env.NOTEBOOKS_PER_GUEST,
-      DEFAULT_LIMITS.notebooksPerGuest,
+      DEFAULT_APPLICATION_LIMITS.notebooksPerGuest,
     ),
     sourcesPerNotebook: positiveInteger(
       process.env.SOURCES_PER_NOTEBOOK,
-      DEFAULT_LIMITS.sourcesPerNotebook,
+      DEFAULT_APPLICATION_LIMITS.sourcesPerNotebook,
     ),
     concurrentIngestionsPerGuest: positiveInteger(
       process.env.CONCURRENT_INGESTIONS_PER_GUEST,
-      DEFAULT_LIMITS.concurrentIngestionsPerGuest,
+      DEFAULT_APPLICATION_LIMITS.concurrentIngestionsPerGuest,
     ),
     questionsPerGuestPerUtcDay: positiveInteger(
       process.env.QUESTIONS_PER_GUEST_PER_UTC_DAY,
-      DEFAULT_LIMITS.questionsPerGuestPerUtcDay,
+      DEFAULT_APPLICATION_LIMITS.questionsPerGuestPerUtcDay,
     ),
   };
 }

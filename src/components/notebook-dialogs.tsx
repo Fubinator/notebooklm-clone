@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { type Notebook } from "@/features/notebooks/model";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 type TitleDialogProps = {
   open: boolean;
@@ -47,7 +48,10 @@ export function CreateNotebookDialog(
           pendingLabel="Creating…"
           hint={
             <>
-              Private to this Guest · {props.notebookLimit ?? 5} Notebook limit
+              Private to this Guest ·{" "}
+              {props.notebookLimit ??
+                DEFAULT_APPLICATION_LIMITS.notebooksPerGuest}{" "}
+              Notebook limit
             </>
           }
         />

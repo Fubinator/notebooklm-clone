@@ -15,29 +15,24 @@ export async function POST(request: Request) {
     return Response.json({ error: validation.message }, { status: 400 });
 
   const admin = createAdminClient();
-  const { count } = await admin
-    .from("notebooks")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_id", auth.id)
-    .eq("is_example", false);
   const limit = getApplicationLimits().notebooksPerGuest;
-  if ((count ?? 0) >= limit)
+  const { data, error } = await admin.rpc("create_private_notebook", {
+    target_guest_id: auth.id,
+    notebook_title: validation.title,
+    notebook_limit: limit,
+  });
+  if (error?.message.includes("notebook_limit_reached"))
     return Response.json(
       { error: `A Guest can keep up to ${limit} Notebooks.` },
       { status: 409 },
     );
-
-  const { data, error } = await admin
-    .from("notebooks")
-    .insert({ owner_id: auth.id, title: validation.title })
-    .select()
-    .single();
-  if (error)
+  const notebook = data?.[0];
+  if (error || !notebook)
     return Response.json(
       { error: "The Notebook could not be created." },
       { status: 500 },
     );
-  return Response.json({ notebook: data }, { status: 201 });
+  return Response.json({ notebook }, { status: 201 });
 }
 
 export async function PATCH(request: Request) {

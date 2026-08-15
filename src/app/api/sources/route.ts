@@ -94,17 +94,7 @@ export async function POST(request: Request) {
       { status: 404 },
     );
 
-  const { count } = await admin
-    .from("sources")
-    .select("id", { count: "exact", head: true })
-    .eq("notebook_id", notebook.id);
   const sourceLimit = getApplicationLimits().sourcesPerNotebook;
-  if ((count ?? 0) >= sourceLimit)
-    return Response.json(
-      { error: `This Notebook already has ${sourceLimit} Sources.` },
-      { status: 409 },
-    );
-
   const sourceId = crypto.randomUUID();
   const storagePath =
     input.kind === "pdf"
@@ -128,30 +118,33 @@ export async function POST(request: Request) {
     input.kind === "pasted_text" && typeof input.content === "string"
       ? input.content
       : "";
-  const { data, error } = await admin
-    .from("sources")
-    .insert({
-      id: sourceId,
-      notebook_id: notebook.id,
-      title,
-      kind: input.kind,
-      content,
-      storage_path: storagePath,
-      processing_stage: "uploaded",
-      attribution: "Added by this Guest",
-      license_name: "Private Source",
-      license_url: "",
-      embedding_provider: CLOUDFLARE_EMBEDDING.provider,
-      embedding_model: CLOUDFLARE_EMBEDDING.model,
-      embedding_dimensions: CLOUDFLARE_EMBEDDING.dimensions,
-      embedding_pooling: CLOUDFLARE_EMBEDDING.pooling,
-    })
-    .select()
-    .single();
+  const { data: createdSources, error } = await admin.rpc(
+    "create_private_source",
+    {
+      target_guest_id: user.id,
+      target_source_id: sourceId,
+      target_notebook_id: notebook.id,
+      source_title: title,
+      source_kind: input.kind,
+      source_content: content,
+      source_storage_path: storagePath,
+      source_limit: sourceLimit,
+      source_embedding_provider: CLOUDFLARE_EMBEDDING.provider,
+      source_embedding_model: CLOUDFLARE_EMBEDDING.model,
+      source_embedding_dimensions: CLOUDFLARE_EMBEDDING.dimensions,
+      source_embedding_pooling: CLOUDFLARE_EMBEDDING.pooling,
+    },
+  );
+  const data = createdSources?.[0];
 
-  if (error) {
+  if (error || !data) {
     if (storagePath)
       await admin.storage.from("source-files").remove([storagePath]);
+    if (error?.message.includes("source_limit_reached"))
+      return Response.json(
+        { error: `This Notebook already has ${sourceLimit} Sources.` },
+        { status: 409 },
+      );
     writeStructuredLog("error", {
       operation: "source_creation",
       correlationId,

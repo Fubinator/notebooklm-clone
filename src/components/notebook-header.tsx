@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { displayGuestId, type Notebook } from "@/features/notebooks/model";
 import { cn } from "@/lib/utils";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 export function NotebookHeader({
   guestId,
   notebooks,
   activeNotebook,
   atLimit,
-  notebookLimit = 5,
+  notebookLimit = DEFAULT_APPLICATION_LIMITS.notebooksPerGuest,
   onSelect,
   onCreate,
   onRename,

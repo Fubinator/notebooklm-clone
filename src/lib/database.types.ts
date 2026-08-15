@@ -38,12 +38,14 @@ export type Database = {
           guest_id: string;
           correlation_id: string;
           acquired_at: string;
+          expires_at: string;
         };
         Insert: {
           source_id: string;
           guest_id: string;
           correlation_id: string;
           acquired_at?: string;
+          expires_at?: string;
         };
         Update: never;
         Relationships: [];
@@ -419,6 +421,39 @@ export type Database = {
           request_correlation_id: string;
         };
         Returns: undefined;
+      };
+      renew_ingestion_lease: {
+        Args: {
+          target_guest_id: string;
+          target_source_id: string;
+          request_correlation_id: string;
+        };
+        Returns: undefined;
+      };
+      create_private_notebook: {
+        Args: {
+          target_guest_id: string;
+          notebook_title: string;
+          notebook_limit: number;
+        };
+        Returns: Database["public"]["Tables"]["notebooks"]["Row"][];
+      };
+      create_private_source: {
+        Args: {
+          target_guest_id: string;
+          target_source_id: string;
+          target_notebook_id: string;
+          source_title: string;
+          source_kind: "pdf" | "pasted_text";
+          source_content: string;
+          source_storage_path: string | null;
+          source_limit: number;
+          source_embedding_provider: string;
+          source_embedding_model: string;
+          source_embedding_dimensions: number;
+          source_embedding_pooling: string;
+        };
+        Returns: Database["public"]["Tables"]["sources"]["Row"][];
       };
       fail_answer: {
         Args: { target_answer_id: string };

@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test("a fresh Guest asks a grounded Question and inspects its Citation", async ({
+  context,
   page,
 }) => {
+  await expect(context.cookies()).resolves.toEqual([]);
   await page.goto("/");
   await expect(page.getByText("Example Notebook", { exact: true })).toBeVisible(
     {

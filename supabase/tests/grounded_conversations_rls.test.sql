@@ -39,14 +39,13 @@ set local request.jwt.claims =
   '{"sub":"dddddddd-dddd-4ddd-8ddd-dddddddddddd","role":"authenticated","is_anonymous":true}';
 set local request.jwt.claim.sub = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
+reset role;
 insert into public.notebooks (id, owner_id, title)
 values (
   '40000000-0000-4000-8000-000000000002',
   'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
   'Guest D private research'
 );
-
-reset role;
 
 insert into public.sources (
   id,

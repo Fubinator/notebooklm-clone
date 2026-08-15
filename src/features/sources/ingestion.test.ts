@@ -31,6 +31,9 @@ function persistence(current: IngestionSource) {
     embedding: string | null;
   }> = [];
   const mock: SourceIngestionPersistence = {
+    acquireLease: vi.fn(async () => undefined),
+    renewLease: vi.fn(async () => undefined),
+    releaseLease: vi.fn(async () => undefined),
     load: vi.fn(async () => current),
     loadOriginal: vi.fn(async () => new Uint8Array()),
     saveExtractedContent: vi.fn(async (_id, content) => {
@@ -87,6 +90,32 @@ function persistence(current: IngestionSource) {
 }
 
 describe("Source Ingestion", () => {
+  it("owns the lease lifecycle and releases it after failures", async () => {
+    const state = persistence(source("embedding"));
+    await state.mock.replacePassages("source", [
+      { ordinal: 0, content: "Evidence", paragraphStart: 1, paragraphEnd: 1 },
+    ]);
+    vi.mocked(state.mock.saveEmbeddings).mockRejectedValueOnce(
+      new Error("database unavailable"),
+    );
+
+    await advanceSource("source", "correlation", {
+      persistence: state.mock,
+      embed: vi.fn(async () => [Array(384).fill(0.1)]),
+      concurrentLimit: 1,
+    });
+
+    expect(state.mock.acquireLease).toHaveBeenCalledWith(
+      "source",
+      "correlation",
+      1,
+    );
+    expect(state.mock.releaseLease).toHaveBeenCalledWith(
+      "source",
+      "correlation",
+    );
+  });
+
   it("advances one persisted Processing Stage per request", async () => {
     const state = persistence(source("uploaded"));
     const embed = vi.fn(async (texts: string[]) =>
@@ -96,6 +125,7 @@ describe("Source Ingestion", () => {
       await advanceSource("source", "correlation", {
         persistence: state.mock,
         embed,
+        concurrentLimit: 1,
       });
     }
     expect(state.mock.transition).toHaveBeenCalledWith(
@@ -119,12 +149,14 @@ describe("Source Ingestion", () => {
     await advanceSource("source", "correlation", {
       persistence: state.mock,
       embed: vi.fn(),
+      concurrentLimit: 1,
     });
     const first = [...state.passages];
     state.setSource(source("chunking"));
     await advanceSource("source", "correlation", {
       persistence: state.mock,
       embed: vi.fn(),
+      concurrentLimit: 1,
     });
     expect(state.passages).toHaveLength(first.length);
     expect(state.passages.map(({ ordinal }) => ordinal)).toEqual(
@@ -139,6 +171,7 @@ describe("Source Ingestion", () => {
     ]);
     const result = await advanceSource("source", "correlation", {
       persistence: state.mock,
+      concurrentLimit: 1,
       embed: vi
         .fn()
         .mockRejectedValue(
@@ -160,11 +193,13 @@ describe("Source Ingestion", () => {
     await advanceSource("source", "retry-correlation", {
       persistence: state.mock,
       embed: vi.fn(),
+      concurrentLimit: 1,
     });
     const embed = vi.fn(async () => [Array(384).fill(0.2)]);
     const ready = await advanceSource("source", "retry-correlation", {
       persistence: state.mock,
       embed,
+      concurrentLimit: 1,
     });
     expect(ready.processingStage).toBe("ready");
 
@@ -172,6 +207,7 @@ describe("Source Ingestion", () => {
     await advanceSource("source", "repeated-correlation", {
       persistence: state.mock,
       embed,
+      concurrentLimit: 1,
     });
     expect(state.passages).toHaveLength(1);
     expect(state.passages[0]!.embedding).toBe(
@@ -187,6 +223,7 @@ describe("Source Ingestion", () => {
     const result = await advanceSource("source", "correlation", {
       persistence: state.mock,
       embed: vi.fn(),
+      concurrentLimit: 1,
     });
     expect(result).toMatchObject({
       processingStage: "failed",

@@ -1,5 +1,30 @@
 type LogValue = string | number | boolean | null | undefined;
 
+const SAFE_ERROR_CATEGORIES = new Set([
+  "answer_provider_invalid_response",
+  "answer_provider_not_configured",
+  "answer_provider_request_failed",
+  "deployment_question_budget_reached",
+  "embedding_provider_dimension_mismatch",
+  "embedding_provider_invalid_response",
+  "embedding_provider_not_configured",
+  "embedding_provider_pooling_mismatch",
+  "embedding_provider_request_failed",
+  "ingestion_limit_reached",
+  "ingestion_lease_not_owned",
+  "notebook_not_authorized",
+  "pdf_content_empty",
+  "pdf_encrypted",
+  "pdf_page_limit",
+  "pdf_storage_missing",
+  "pdf_type_unsupported",
+  "pdf_unreadable",
+  "processing_failed",
+  "question_limit_reached",
+  "source_content_empty",
+  "source_not_authorized",
+]);
+
 export function writeStructuredLog(
   level: "info" | "error",
   event: Record<string, LogValue>,
@@ -14,5 +39,6 @@ export function writeStructuredLog(
 
 export function safeErrorCategory(error: unknown) {
   const message = error instanceof Error ? error.message : "unknown_failure";
-  return message.split(":", 1)[0] || "unknown_failure";
+  const category = message.split(":", 1)[0];
+  return SAFE_ERROR_CATEGORIES.has(category) ? category : "unknown_failure";
 }
