@@ -96,6 +96,7 @@ export async function POST(request: Request) {
     return Response.json({ result }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
+    const category = safeErrorCategory(error);
     writeStructuredLog("error", {
       operation: "grounded_answering",
       correlationId,
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
       stage: "request",
       durationMs: Math.round(performance.now() - startedAt),
       outcome: "failed",
-      category: safeErrorCategory(error),
+      category,
       provider: answerModel.provider,
       model: answerModel.model,
       ...(error instanceof AnswerProviderRequestError
@@ -144,7 +145,11 @@ export async function POST(request: Request) {
     }
 
     return Response.json(
-      { error: "The Answer could not be completed safely. Please try again." },
+      {
+        error: "The Answer could not be completed safely. Please try again.",
+        category,
+        correlationId,
+      },
       { status: 502 },
     );
   }

@@ -22,12 +22,23 @@ test("a fresh Guest asks a grounded Question and inspects its Citation", async (
     .click();
   const response = await questionResponse;
   const responseBody = (await response.json()) as {
+    category?: string;
+    correlationId?: string;
     error?: string;
     result?: { kind?: string; status?: string };
   };
+  const failureDetails = [
+    responseBody.error,
+    responseBody.category ? `category=${responseBody.category}` : undefined,
+    responseBody.correlationId
+      ? `correlationId=${responseBody.correlationId}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("; ");
   expect(
     response.status(),
-    responseBody.error ?? "The Question API did not complete successfully.",
+    failureDetails || "The Question API did not complete successfully.",
   ).toBe(201);
   expect(responseBody.result).toEqual({
     kind: "grounded",
