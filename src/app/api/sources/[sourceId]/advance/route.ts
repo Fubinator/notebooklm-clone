@@ -3,7 +3,7 @@ import { advanceSource } from "@/features/sources/ingestion";
 import { createSourceIngestionPersistence } from "@/features/sources/ingestion-persistence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { getApplicationLimits } from "@/lib/limits";
+import { getApplicationLimits, passageLimits } from "@/lib/limits";
 import { safeErrorCategory, writeStructuredLog } from "@/lib/structured-log";
 
 export async function POST(
@@ -30,9 +30,10 @@ export async function POST(
       persistence: createSourceIngestionPersistence(admin, user.id),
       embed: embedTexts,
       concurrentLimit: limits.concurrentIngestionsPerGuest,
-      pdfPageLimit: limits.pdfPages,
-      passageTargetCharacters: limits.passageTargetCharacters,
-      passageOverlapCharacters: limits.passageOverlapCharacters,
+      limits: {
+        pdfPages: limits.pdfPages,
+        passages: passageLimits(limits),
+      },
     });
     writeStructuredLog("info", {
       operation: "source_ingestion",

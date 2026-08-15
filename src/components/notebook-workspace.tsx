@@ -38,6 +38,8 @@ import { validatePastedText } from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 import {
   DEFAULT_APPLICATION_LIMITS,
+  formatMegabytes,
+  sourceInputLimits,
   type ApplicationLimits,
 } from "@/lib/limits";
 
@@ -227,7 +229,7 @@ export function NotebookWorkspace({
       return setSourceError("Choose a PDF to upload.");
     if (sourceKind === "pdf" && sourceFile!.size > limits.pdfBytes)
       return setSourceError(
-        `PDFs must be ${Number((limits.pdfBytes / 1024 / 1024).toFixed(2))} MB or smaller.`,
+        `PDFs must be ${formatMegabytes(limits.pdfBytes)} MB or smaller.`,
       );
     setSourcePending(true);
     try {
@@ -438,9 +440,7 @@ export function NotebookWorkspace({
         error={sourceError}
         pending={sourcePending}
         onSubmit={(event) => void handleAddSource(event)}
-        pastedTextCharacterLimit={limits.pastedTextCharacters}
-        pdfByteLimit={limits.pdfBytes}
-        pdfPageLimit={limits.pdfPages}
+        limits={sourceInputLimits(limits)}
       />
 
       <div className="sr-only" role="status" aria-live="polite">

@@ -3,7 +3,7 @@ import { readPdf, validatePastedText } from "@/features/sources/source-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation";
-import { getApplicationLimits } from "@/lib/limits";
+import { formatMegabytes, getApplicationLimits } from "@/lib/limits";
 import { safeErrorCategory, writeStructuredLog } from "@/lib/structured-log";
 
 type CreateInput =
@@ -178,10 +178,6 @@ export async function POST(request: Request) {
     model: CLOUDFLARE_EMBEDDING.model,
   });
   return Response.json({ source: data }, { status: 201 });
-}
-
-function formatMegabytes(bytes: number) {
-  return Number((bytes / 1024 / 1024).toFixed(2));
 }
 
 async function parseInput(request: Request): Promise<CreateInput | null> {

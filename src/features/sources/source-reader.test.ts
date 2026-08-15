@@ -49,4 +49,19 @@ describe("pasted-text Source Reader", () => {
       { ordinal: 1, paragraphStart: 2, paragraphEnd: 3 },
     ]);
   });
+
+  it("uses the configured pasted-text paragraph overlap", () => {
+    const paragraphs = [1, 2, 3].map((paragraph) => ({
+      paragraph,
+      content: `${paragraph}: ${"x".repeat(400)}`,
+    }));
+    expect(
+      buildPassages(paragraphs, 900, 0).map(
+        ({ paragraphStart, paragraphEnd }) => [paragraphStart, paragraphEnd],
+      ),
+    ).toEqual([
+      [1, 2],
+      [3, 3],
+    ]);
+  });
 });

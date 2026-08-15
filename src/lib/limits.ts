@@ -8,6 +8,18 @@ export type ApplicationLimits = {
   pdfPages: number;
   passageTargetCharacters: number;
   passageOverlapCharacters: number;
+  passageOverlapParagraphs: number;
+};
+
+export type SourceInputLimits = Pick<
+  ApplicationLimits,
+  "pastedTextCharacters" | "pdfBytes" | "pdfPages"
+>;
+
+export type PassageLimits = {
+  targetCharacters: number;
+  overlapCharacters: number;
+  overlapParagraphs: number;
 };
 
 export const DEFAULT_APPLICATION_LIMITS: ApplicationLimits = {
@@ -20,6 +32,7 @@ export const DEFAULT_APPLICATION_LIMITS: ApplicationLimits = {
   pdfPages: 50,
   passageTargetCharacters: 900,
   passageOverlapCharacters: 150,
+  passageOverlapParagraphs: 1,
 };
 
 export function getApplicationLimits(): ApplicationLimits {
@@ -64,7 +77,33 @@ export function getApplicationLimits(): ApplicationLimits {
       ),
       DEFAULT_APPLICATION_LIMITS.passageOverlapCharacters,
     ),
+    passageOverlapParagraphs: nonNegativeInteger(
+      process.env.PASSAGE_OVERLAP_PARAGRAPHS,
+      DEFAULT_APPLICATION_LIMITS.passageOverlapParagraphs,
+    ),
   };
+}
+
+export function sourceInputLimits(
+  limits: ApplicationLimits,
+): SourceInputLimits {
+  return {
+    pastedTextCharacters: limits.pastedTextCharacters,
+    pdfBytes: limits.pdfBytes,
+    pdfPages: limits.pdfPages,
+  };
+}
+
+export function passageLimits(limits: ApplicationLimits): PassageLimits {
+  return {
+    targetCharacters: limits.passageTargetCharacters,
+    overlapCharacters: limits.passageOverlapCharacters,
+    overlapParagraphs: limits.passageOverlapParagraphs,
+  };
+}
+
+export function formatMegabytes(bytes: number) {
+  return Number((bytes / 1024 / 1024).toFixed(2));
 }
 
 function boundedOverlap(

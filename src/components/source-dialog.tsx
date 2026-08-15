@@ -13,7 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
+import {
+  DEFAULT_APPLICATION_LIMITS,
+  formatMegabytes,
+  sourceInputLimits as selectSourceInputLimits,
+  type SourceInputLimits,
+} from "@/lib/limits";
 
 export function AddSourceDialog({
   open,
@@ -29,9 +34,7 @@ export function AddSourceDialog({
   error,
   pending,
   onSubmit,
-  pastedTextCharacterLimit = DEFAULT_APPLICATION_LIMITS.pastedTextCharacters,
-  pdfByteLimit = DEFAULT_APPLICATION_LIMITS.pdfBytes,
-  pdfPageLimit = DEFAULT_APPLICATION_LIMITS.pdfPages,
+  limits = selectSourceInputLimits(DEFAULT_APPLICATION_LIMITS),
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,9 +49,7 @@ export function AddSourceDialog({
   error?: string;
   pending: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  pastedTextCharacterLimit?: number;
-  pdfByteLimit?: number;
-  pdfPageLimit?: number;
+  limits?: SourceInputLimits;
 }) {
   const errorId = "pasted-source-error";
   return (
@@ -57,10 +58,10 @@ export function AddSourceDialog({
         <DialogHeader>
           <DialogTitle>Add Source</DialogTitle>
           <DialogDescription>
-            Paste up to {pastedTextCharacterLimit.toLocaleString()} characters
-            or upload a PDF up to{" "}
-            {Number((pdfByteLimit / 1024 / 1024).toFixed(2))} MB and{" "}
-            {pdfPageLimit} pages. Locations are preserved for Citations.
+            Paste up to {limits.pastedTextCharacters.toLocaleString()}{" "}
+            characters or upload a PDF up to {formatMegabytes(limits.pdfBytes)}{" "}
+            MB and {limits.pdfPages} pages. Locations are preserved for
+            Citations.
           </DialogDescription>
         </DialogHeader>
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -108,9 +109,9 @@ export function AddSourceDialog({
                 aria-describedby={error ? errorId : "pdf-limits"}
               />
               <p id="pdf-limits" className="mt-2 text-xs text-[var(--muted)]">
-                PDF only · {Number((pdfByteLimit / 1024 / 1024).toFixed(2))} MB
-                maximum · {pdfPageLimit} pages maximum · password-protected and
-                scanned PDFs are not supported
+                PDF only · {formatMegabytes(limits.pdfBytes)} MB maximum ·{" "}
+                {limits.pdfPages} pages maximum · password-protected and scanned
+                PDFs are not supported
               </p>
               {file ? (
                 <p className="mt-2 text-xs font-semibold">
@@ -124,13 +125,13 @@ export function AddSourceDialog({
                 <label htmlFor="source-content">Pasted text</label>
                 <span
                   className={
-                    content.length > pastedTextCharacterLimit
+                    content.length > limits.pastedTextCharacters
                       ? "text-[var(--danger)]"
                       : "text-[var(--muted)]"
                   }
                 >
                   {content.length.toLocaleString()} /{" "}
-                  {pastedTextCharacterLimit.toLocaleString()}
+                  {limits.pastedTextCharacters.toLocaleString()}
                 </span>
               </div>
               <textarea

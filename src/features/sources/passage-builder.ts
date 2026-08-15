@@ -15,6 +15,7 @@ export type BuiltPassage = {
 export function buildPassages(
   paragraphs: LocatedParagraph[],
   targetCharacters = PASSAGE_TARGET_CHARACTERS,
+  overlapParagraphs = PASSAGE_OVERLAP_PARAGRAPHS,
 ): BuiltPassage[] {
   const passages: BuiltPassage[] = [];
   let start = 0;
@@ -39,7 +40,7 @@ export function buildPassages(
     });
 
     if (end >= paragraphs.length) break;
-    start = Math.max(start + 1, end - PASSAGE_OVERLAP_PARAGRAPHS);
+    start = Math.max(start + 1, end - overlapParagraphs);
   }
 
   return passages;
@@ -64,6 +65,7 @@ export function buildPdfPassages(
         paragraphEnd: 0,
         pageNumber: page.page,
       });
+      if (start + targetCharacters >= page.content.length) break;
     }
   }
   return passages.filter(({ content }) => Boolean(content));

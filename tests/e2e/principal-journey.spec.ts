@@ -18,7 +18,7 @@ test("a fresh Guest asks a grounded Question and inspects its Citation", async (
       response.request().method() === "POST",
   );
   await page
-    .getByRole("button", { name: "What makes an AI system trustworthy?" })
+    .getByRole("button", { name: "What are the four AI RMF functions?" })
     .click();
   const response = await questionResponse;
   const responseBody = (await response.json()) as {
@@ -51,9 +51,9 @@ test("a fresh Guest asks a grounded Question and inspects its Citation", async (
 
   const inspector = page.getByLabel("Citation 1 inspector");
   await expect(inspector).toContainText("AI RMF");
-  await expect(inspector).toContainText(/PDF page \d+/);
+  await expect(inspector).toContainText("PDF page 20");
   await expect(inspector).toContainText(
-    /The AI RMF Core provides outcomes|Trustworthy AI systems and their responsible use|Generative AI risks vary|Information integrity describes/,
+    "The Core is composed of four functions: GOVERN, MAP, MEASURE, and MANAGE.",
   );
   await expect(inspector).toContainText(
     "This is the exact stored Passage validated for the Answer.",
