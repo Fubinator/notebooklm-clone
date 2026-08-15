@@ -1,6 +1,6 @@
 # NotebookLM-Clone
 
-NotebookLM-Clone is a private, source-grounded research workspace built for a focused full-stack interview demonstration. The product uses the original interface name **Margin** and does not claim affiliation with Google.
+NotebookLM-Clone is an independently built, NotebookLM-inspired, source-grounded research workspace created for a focused full-stack interview demonstration. The product uses the original interface name **Margin** and is not affiliated with Google.
 
 The application creates or restores a Supabase-authenticated Guest without an application login form. Every Guest can immediately explore a shared, read-only Example Notebook, while creating and managing private Notebooks in the same responsive three-pane research desk. Supabase Row Level Security—not UI filtering—enforces both shared access and private ownership.
 
@@ -9,6 +9,7 @@ The application creates or restores a Supabase-authenticated Guest without an ap
 - Automatic Supabase anonymous sign-in with cookie-backed session restoration
 - Dynamically rendered identity-bearing pages to prevent Guest metadata caching
 - Private Notebook create, list, open, rename, and delete behavior
+- Private PDF and pasted-text Source ingestion with persisted, retryable stages
 - Immediate shared Example Notebook with two attributed NIST Sources
 - Readable Source previews with ordered PDF-page Passages
 - Reproducible 384-dimension Cloudflare Workers AI embeddings stored with pgvector
@@ -18,15 +19,18 @@ The application creates or restores a Supabase-authenticated Guest without an ap
 - One repair attempt for invalid Citation output and safe failure after that
 - Explicit insufficient-evidence Answers without a chat-model call
 - Citation inspection with the exact Passage, Source title, and PDF page or paragraph
+- Private Notes saved from completed grounded Answers and restored after refresh
 - Database-enforced immutability for Example Notebook data
 - Database-enforced ownership, title constraints, and five-Notebook Guest limit
 - Desktop three-pane Sources, Conversation, and Studio shell
 - Purposeful unconfigured, loading, empty, disabled, error, and success states
 - Narrow-screen panel navigation
-- Focused orchestration/UI tests, a five-Question retrieval fixture, and two-Guest RLS tests
+- Configurable per-Guest limits, an ingestion lease, and a deployment-wide Question ceiling
+- Content-free structured logs with correlation IDs and safe failure categories
+- Focused orchestration/UI tests, a five-Question retrieval fixture, two-Guest RLS tests, and a deployed browser journey
 - CI checks for formatting, linting, TypeScript, tests, production build, and RLS
 
-Private Source ingestion and Notes belong to later vertical slices. The Example Notebook now supports the complete ask → retrieve → answer → inspect journey.
+The Example Notebook supports the complete ask → retrieve → answer → inspect → save journey. Private Notebooks additionally support PDF and pasted-text ingestion.
 
 ## Stack
 
@@ -78,6 +82,11 @@ CLOUDFLARE_API_TOKEN=your_workers_ai_read_token
 CLOUDFLARE_ANSWER_MODEL=@cf/meta/llama-3.1-8b-instruct-fast
 RETRIEVAL_MATCH_COUNT=5
 RETRIEVAL_MIN_SIMILARITY=0.42
+NOTEBOOKS_PER_GUEST=5
+SOURCES_PER_NOTEBOOK=5
+CONCURRENT_INGESTIONS_PER_GUEST=1
+QUESTIONS_PER_GUEST_PER_UTC_DAY=20
+DEPLOYMENT_QUESTION_HARD_CEILING=1000
 ```
 
 `supabase db reset` replays the migrations and committed `supabase/seed.sql`, producing the same Example Notebook, Sources, Passages, and embeddings every time.
@@ -125,6 +134,8 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:seed
+pnpm check:migrations
 pnpm build
 ```
 
@@ -134,7 +145,13 @@ With the local Supabase stack running, verify database authorization:
 supabase test db
 ```
 
-The pgTAP suites prove the seed shape and embedding dimensions, evaluate five deterministic retrieval fixtures, reject unready and unauthorized candidates, enforce atomic Citation validation, deny Example mutations, and isolate two Guests' Conversations, Messages, and Citations.
+The pgTAP suites prove the seed shape and embedding dimensions, evaluate five deterministic retrieval fixtures, reject unready and unauthorized candidates, enforce atomic Citation validation, deny Example mutations, and isolate two Guests' Notebooks, Sources, Passages, Conversations, Messages, Citations, Notes, usage records, and Storage objects.
+
+The deployed principal journey is intentionally separate because it targets the protected Vercel preview. Set `E2E_BASE_URL` and the dedicated `VERCEL_AUTOMATION_BYPASS_SECRET`, then run `pnpm test:e2e`. CI discovers the deployment created for the exact commit before starting this test.
+
+## Demo fixtures
+
+Run `pnpm demo:prepare` to generate `demo/known-good-source.pdf`, a small deterministic one-page PDF authored for the ingestion walkthrough. If PDF processing is unavailable, paste [demo/pasted-text-fallback.md](./demo/pasted-text-fallback.md) instead. Exact prepared Questions and the recording checklist are in [DEMO.md](./DEMO.md).
 
 ## Vercel preview
 
@@ -144,6 +161,8 @@ The pgTAP suites prove the seed shape and embedding dimensions, evaluate five de
 4. Deploy the branch and smoke-test it in a private browser window.
 5. In Vercel, enable Deployment Protection for preview deployments and create a shareable link for the reviewer.
 6. Keep that private shareable URL outside the public repository. Use a separate deployment-protection bypass secret if automated browser tests are added later.
+
+The public repository intentionally contains no live-demo or reviewer credential. Send the private Vercel share URL separately from the GitHub and Loom links.
 
 The Vercel gate controls who can reach the preview; Supabase RLS continues to isolate every admitted Guest’s data. Revoke or rotate the shareable link after review.
 
@@ -161,6 +180,14 @@ The Vercel gate controls who can reach the preview; Supabase RLS continues to is
 - `.env*` files are ignored except for the credential-free `.env.example` template.
 
 Anonymous Guests lose access if their browser storage is cleared or they sign out. That is expected for this demonstration scope.
+
+## Architecture, tradeoffs, and non-goals
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) documents the data model, trust boundaries, ingestion state machine, retrieval and Citation validation, provider seams, observability, limits, deployment shape, and rejected alternatives. [PRODUCT.md](./PRODUCT.md) records the reviewer journey and explicit non-goals: no permanent accounts, collaboration, broad ingestion, multiple conversation threads, audio generation, or production-scale asynchronous workers. The principal tradeoff is a deliberately narrow, bounded experience whose authorization and evidence chain can be demonstrated and tested end to end.
+
+## Licensing and attribution
+
+Application code and project-authored demo fixtures are available under the [MIT License](./LICENSE). The Example Notebook separately attributes excerpts from NIST AI 100-1 and NIST AI 600-1 and links the applicable NIST Technical Series reuse terms in both the seed data and Source inspector; those excerpts are not relicensed by this repository.
 
 ## Project guide
 
