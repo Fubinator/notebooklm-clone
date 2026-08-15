@@ -1,4 +1,4 @@
-import { embedTexts } from "@/features/sources/embedding";
+import { CLOUDFLARE_EMBEDDING, embedTexts } from "@/features/sources/embedding";
 import { advanceSource } from "@/features/sources/ingestion";
 import { createSourceIngestionPersistence } from "@/features/sources/ingestion-persistence";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -38,6 +38,8 @@ export async function POST(
       stage: source.processingStage,
       durationMs: Math.round(performance.now() - startedAt),
       outcome: source.processingStage === "failed" ? "failed" : "advanced",
+      provider: CLOUDFLARE_EMBEDDING.provider,
+      model: CLOUDFLARE_EMBEDDING.model,
     });
     return Response.json({ source });
   } catch (error) {
@@ -65,6 +67,8 @@ export async function POST(
       durationMs: Math.round(performance.now() - startedAt),
       outcome: "failed",
       category: safeErrorCategory(error),
+      provider: CLOUDFLARE_EMBEDDING.provider,
+      model: CLOUDFLARE_EMBEDDING.model,
     });
     return Response.json(
       { error: "The Source could not be processed safely." },

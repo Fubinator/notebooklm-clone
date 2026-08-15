@@ -1,4 +1,23 @@
-type LogValue = string | number | boolean | null | undefined;
+export type StructuredLogEvent = {
+  operation: string;
+  correlationId: string;
+  stage: string;
+  durationMs: number;
+  outcome: string;
+  guestId?: string;
+  notebookId?: string;
+  sourceId?: string;
+  sourceKind?: string;
+  answerKind?: string;
+  provider?: string;
+  model?: string;
+  providerStatus?: number;
+  providerCode?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  category?: string;
+};
 
 const SAFE_ERROR_CATEGORIES = new Set([
   "answer_provider_invalid_response",
@@ -12,6 +31,7 @@ const SAFE_ERROR_CATEGORIES = new Set([
   "embedding_provider_request_failed",
   "ingestion_limit_reached",
   "ingestion_lease_not_owned",
+  "ingestion_lease_lost",
   "notebook_not_authorized",
   "pdf_content_empty",
   "pdf_encrypted",
@@ -27,7 +47,7 @@ const SAFE_ERROR_CATEGORIES = new Set([
 
 export function writeStructuredLog(
   level: "info" | "error",
-  event: Record<string, LogValue>,
+  event: StructuredLogEvent,
 ) {
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   advanceSource,
@@ -6,6 +6,10 @@ import {
   type SourceIngestionPersistence,
 } from "./ingestion";
 import type { BuiltPassage } from "./passage-builder";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function source(
   processingStage: IngestionSource["processingStage"],
@@ -114,6 +118,80 @@ describe("Source Ingestion", () => {
       "source",
       "correlation",
     );
+  });
+
+  it("stops without persisting when lease renewal fails", async () => {
+    const state = persistence(source("embedding"));
+    await state.mock.replacePassages("source", [
+      { ordinal: 0, content: "Evidence", paragraphStart: 1, paragraphEnd: 1 },
+    ]);
+    vi.mocked(state.mock.renewLease).mockRejectedValueOnce(
+      new Error("lease expired"),
+    );
+
+    await expect(
+      advanceSource("source", "correlation", {
+        persistence: state.mock,
+        embed: vi.fn(async () => [Array(384).fill(0.1)]),
+        concurrentLimit: 1,
+      }),
+    ).rejects.toThrow("ingestion_lease_lost");
+
+    expect(state.mock.saveEmbeddings).not.toHaveBeenCalled();
+    expect(state.mock.markReady).not.toHaveBeenCalled();
+    expect(state.mock.markFailed).not.toHaveBeenCalled();
+    expect(state.mock.releaseLease).toHaveBeenCalledWith(
+      "source",
+      "correlation",
+    );
+  });
+
+  it("does not convert lease loss into an uploaded-stage failure", async () => {
+    const state = persistence(source("uploaded"));
+    vi.mocked(state.mock.renewLease).mockRejectedValue(
+      new Error("lease expired"),
+    );
+
+    await expect(
+      advanceSource("source", "correlation", {
+        persistence: state.mock,
+        embed: vi.fn(),
+        concurrentLimit: 1,
+      }),
+    ).rejects.toThrow("ingestion_lease_lost");
+
+    expect(state.mock.transition).not.toHaveBeenCalled();
+    expect(state.mock.markFailed).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a heartbeat failure before persisting provider output", async () => {
+    vi.useFakeTimers();
+    const state = persistence(source("embedding"));
+    await state.mock.replacePassages("source", [
+      { ordinal: 0, content: "Evidence", paragraphStart: 1, paragraphEnd: 1 },
+    ]);
+    vi.mocked(state.mock.renewLease).mockRejectedValue(
+      new Error("lease expired"),
+    );
+    let finishEmbedding: (value: number[][]) => void = () => undefined;
+    const embed = vi.fn(
+      () =>
+        new Promise<number[][]>((resolve) => {
+          finishEmbedding = resolve;
+        }),
+    );
+
+    const advancing = advanceSource("source", "correlation", {
+      persistence: state.mock,
+      embed,
+      concurrentLimit: 1,
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    finishEmbedding([Array(384).fill(0.1)]);
+
+    await expect(advancing).rejects.toThrow("ingestion_lease_lost");
+    expect(state.mock.saveEmbeddings).not.toHaveBeenCalled();
+    expect(state.mock.markReady).not.toHaveBeenCalled();
   });
 
   it("advances one persisted Processing Stage per request", async () => {
