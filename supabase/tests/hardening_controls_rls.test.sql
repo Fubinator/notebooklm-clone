@@ -9,8 +9,13 @@ values
 
 set local role service_role;
 
+create temporary table guest_a_notebook as
+select id from public.create_private_notebook(
+  '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Guest A', 1
+);
+
 select is(
-  (select count(*)::integer from public.create_private_notebook('11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Guest A', 1)),
+  (select count(*)::integer from guest_a_notebook),
   1,
   'The privileged Notebook operation creates one owned Notebook'
 );
@@ -29,7 +34,7 @@ select is(
   (select count(*)::integer from public.create_private_source(
     '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '10000000-0000-4000-8000-000000000001',
-    (select id from public.notebooks where owner_id = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    (select id from guest_a_notebook),
     'Owned Source', 'pasted_text', 'Grounded evidence.', null, 1,
     'cloudflare-workers-ai', '@cf/baai/bge-small-en-v1.5', 384, 'cls'
   )),
@@ -40,7 +45,7 @@ select throws_ok(
   $$select * from public.create_private_source(
     '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '10000000-0000-4000-8000-000000000002',
-    (select id from public.notebooks where owner_id = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    (select id from guest_a_notebook),
     'Too many', 'pasted_text', 'More evidence.', null, 1,
     'cloudflare-workers-ai', '@cf/baai/bge-small-en-v1.5', 384, 'cls'
   )$$,
@@ -51,7 +56,7 @@ select throws_ok(
   $$select * from public.create_private_source(
     '22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '10000000-0000-4000-8000-000000000003',
-    (select id from public.notebooks where owner_id = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    (select id from guest_a_notebook),
     'Intrusion', 'pasted_text', 'Stolen.', null, 5,
     'cloudflare-workers-ai', '@cf/baai/bge-small-en-v1.5', 384, 'cls'
   )$$,
@@ -89,7 +94,7 @@ reset role;
 insert into public.conversations (id, notebook_id, owner_id)
 values (
   '10000000-0000-4000-8000-000000000020',
-  (select id from public.notebooks where owner_id = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  (select id from guest_a_notebook),
   '11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 );
 insert into public.messages (id, conversation_id, role, content, status, completed_at)
