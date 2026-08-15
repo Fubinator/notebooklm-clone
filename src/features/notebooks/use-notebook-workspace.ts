@@ -15,7 +15,6 @@ export type NotebookActionResult =
   { ok: true } | { ok: false; message: string };
 
 type NotebookWorkspaceOptions = {
-  guestId: string;
   initialNotebooks: Notebook[];
   initialActiveId?: string;
   repository: NotebookRepository;
@@ -24,7 +23,6 @@ type NotebookWorkspaceOptions = {
 };
 
 export function useNotebookWorkspace({
-  guestId,
   initialNotebooks,
   initialActiveId,
   repository,
@@ -80,10 +78,7 @@ export function useNotebookWorkspace({
 
       setPending(true);
       try {
-        const created = await repository.create({
-          ownerId: guestId,
-          title: validation.title,
-        });
+        const created = await repository.create({ title: validation.title });
         setNotebooks((current) => sortNotebooks([created, ...current]));
         setActiveId(created.id);
         navigate(created.id);
@@ -95,7 +90,7 @@ export function useNotebookWorkspace({
         setPending(false);
       }
     },
-    [guestId, navigate, notebookLimit, notebooks, repository, showNotice],
+    [navigate, notebookLimit, notebooks, repository, showNotice],
   );
 
   const rename = useCallback(

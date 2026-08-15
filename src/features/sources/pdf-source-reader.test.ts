@@ -48,6 +48,20 @@ describe("PDF Source Reader", () => {
     ]);
   });
 
+  it("builds overlapping PDF Passages at the configured boundary", () => {
+    const content = "0123456789ABCDEFGHIJ";
+    expect(
+      buildPdfPassages([{ page: 3, content }], 10, 3).map((passage) => ({
+        content: passage.content,
+        pageNumber: passage.pageNumber,
+      })),
+    ).toEqual([
+      { content: "0123456789", pageNumber: 3 },
+      { content: "789ABCDEFG", pageNumber: 3 },
+      { content: "EFGHIJ", pageNumber: 3 },
+    ]);
+  });
+
   it("does not detach the caller's bytes while parsing", async () => {
     mocks.getDocumentProxy.mockImplementationOnce(
       async (content: Uint8Array) => {
@@ -89,5 +103,12 @@ describe("PDF Source Reader", () => {
     await expect(readPdf(new TextEncoder().encode("%PDF-x"))).rejects.toThrow(
       "pdf_content_empty",
     );
+  });
+
+  it("uses a configured PDF page limit", async () => {
+    mocks.getDocumentProxy.mockResolvedValueOnce({ numPages: 3 });
+    await expect(
+      readPdf(new TextEncoder().encode("%PDF-x"), 2),
+    ).rejects.toThrow("pdf_page_limit");
   });
 });

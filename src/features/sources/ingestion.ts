@@ -1,13 +1,18 @@
 import type { ProcessingStage } from "@/lib/database.types";
+import type { PassageLimits } from "@/lib/limits";
 
 import { CLOUDFLARE_EMBEDDING } from "./cloudflare-embedding";
 import {
   buildPassages,
   buildPdfPassages,
+  PASSAGE_OVERLAP_CHARACTERS,
+  PASSAGE_OVERLAP_PARAGRAPHS,
+  PASSAGE_TARGET_CHARACTERS,
   type BuiltPassage,
 } from "./passage-builder";
 import {
   deserializePdfPages,
+  PDF_PAGE_LIMIT,
   pastedTextReader,
   pdfReader,
   serializePdfPages,
@@ -25,6 +30,11 @@ export type IngestionSource = {
 
 export type RetryStage = "extracting" | "chunking" | "embedding";
 export const EMBEDDING_BATCH_SIZE = 16;
+
+export type SourceIngestionLimits = {
+  pdfPages: number;
+  passages: PassageLimits;
+};
 
 export type IngestionPassage = BuiltPassage & {
   id: string;
@@ -69,6 +79,7 @@ export async function advanceSource(
     persistence: SourceIngestionPersistence;
     embed: (texts: string[]) => Promise<number[][]>;
     concurrentLimit: number;
+    limits?: SourceIngestionLimits;
   },
 ) {
   await dependencies.persistence.acquireLease(
@@ -104,6 +115,14 @@ export async function advanceSource(
   try {
     return await advanceSourceStage(sourceId, correlationId, {
       ...dependencies,
+      limits: dependencies.limits ?? {
+        pdfPages: PDF_PAGE_LIMIT,
+        passages: {
+          targetCharacters: PASSAGE_TARGET_CHARACTERS,
+          overlapCharacters: PASSAGE_OVERLAP_CHARACTERS,
+          overlapParagraphs: PASSAGE_OVERLAP_PARAGRAPHS,
+        },
+      },
       assertLease,
     });
   } finally {
@@ -118,6 +137,7 @@ async function advanceSourceStage(
   dependencies: {
     persistence: SourceIngestionPersistence;
     embed: (texts: string[]) => Promise<number[][]>;
+    limits: SourceIngestionLimits;
     assertLease: () => Promise<void>;
   },
 ) {
@@ -160,6 +180,7 @@ async function advanceSourceStage(
       if (source.kind === "pdf") {
         const pages = await pdfReader.read(
           await dependencies.persistence.loadOriginal(sourceId),
+          dependencies.limits.pdfPages,
         );
         await dependencies.assertLease();
         await dependencies.persistence.saveExtractedContent(
@@ -180,8 +201,16 @@ async function advanceSourceStage(
     if (source.processingStage === "chunking") {
       const passages =
         source.kind === "pdf"
-          ? buildPdfPassages(deserializePdfPages(source.content))
-          : buildPassages(pastedTextReader.read(source.content));
+          ? buildPdfPassages(
+              deserializePdfPages(source.content),
+              dependencies.limits.passages.targetCharacters,
+              dependencies.limits.passages.overlapCharacters,
+            )
+          : buildPassages(
+              pastedTextReader.read(source.content),
+              dependencies.limits.passages.targetCharacters,
+              dependencies.limits.passages.overlapParagraphs,
+            );
       if (!passages.length) throw new Error("source_content_empty");
       await dependencies.assertLease();
       await dependencies.persistence.replacePassages(sourceId, passages);

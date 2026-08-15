@@ -34,13 +34,12 @@ import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspac
 import { createNoteRepository } from "@/features/notes/repository";
 import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
-import {
-  PDF_BYTE_LIMIT,
-  validatePastedText,
-} from "@/features/sources/source-reader";
+import { validatePastedText } from "@/features/sources/source-reader";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 import {
   DEFAULT_APPLICATION_LIMITS,
+  formatMegabytes,
+  sourceInputLimits,
   type ApplicationLimits,
 } from "@/lib/limits";
 
@@ -78,7 +77,6 @@ export function NotebookWorkspace({
     [router],
   );
   const workspace = useNotebookWorkspace({
-    guestId,
     initialNotebooks,
     initialActiveId,
     repository,
@@ -221,13 +219,18 @@ export function NotebookWorkspace({
     event.preventDefault();
     if (!sourceTitle.trim())
       return setSourceError("Enter a title for this Source.");
-    const validation = validatePastedText(sourceContent);
+    const validation = validatePastedText(
+      sourceContent,
+      limits.pastedTextCharacters,
+    );
     if (sourceKind === "pasted_text" && !validation.ok)
       return setSourceError(validation.message);
     if (sourceKind === "pdf" && !sourceFile)
       return setSourceError("Choose a PDF to upload.");
-    if (sourceKind === "pdf" && sourceFile!.size > PDF_BYTE_LIMIT)
-      return setSourceError("PDFs must be 10 MB or smaller.");
+    if (sourceKind === "pdf" && sourceFile!.size > limits.pdfBytes)
+      return setSourceError(
+        `PDFs must be ${formatMegabytes(limits.pdfBytes)} MB or smaller.`,
+      );
     setSourcePending(true);
     try {
       await sourceLibrary.create(
@@ -437,6 +440,7 @@ export function NotebookWorkspace({
         error={sourceError}
         pending={sourcePending}
         onSubmit={(event) => void handleAddSource(event)}
+        limits={sourceInputLimits(limits)}
       />
 
       <div className="sr-only" role="status" aria-live="polite">

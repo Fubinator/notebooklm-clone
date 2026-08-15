@@ -32,6 +32,7 @@ export function ConversationView({
   savedAnswerIds,
   savingAnswerId,
   onSaveAnswer,
+  dailyQuestionLimit,
 }: {
   notebook: Notebook;
   messages: ConversationMessage[];
@@ -45,6 +46,7 @@ export function ConversationView({
   savedAnswerIds: Set<string>;
   savingAnswerId?: string;
   onSaveAnswer: (answer: ConversationMessage) => void;
+  dailyQuestionLimit: number;
 }) {
   const [question, setQuestion] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -145,8 +147,8 @@ export function ConversationView({
           </div>
         </div>
         <p className="mt-2 text-center text-[10px] text-[var(--muted-light)]">
-          Answers use only retrieved Passages from ready Sources · 20 grounded
-          Questions per day
+          Answers use only retrieved Passages from ready Sources ·{" "}
+          {dailyQuestionLimit} grounded Questions per day
         </p>
         {error ? (
           <p

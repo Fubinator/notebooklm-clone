@@ -1,6 +1,6 @@
 # NotebookLM-Clone Architecture
 
-Status: implemented through private pasted-text Source ingestion and the grounded Question, Citation, and private Note journey; PDF ingestion remains planned
+Status: implemented through private PDF and pasted-text Source ingestion and the grounded Question, Citation, and private Note journey
 
 This architecture optimizes for a credible full-stack interview demonstration within a 15–20 hour delivery budget. It favors narrow interfaces, explicit ownership, recoverable processing, and inspectable grounding over production-scale infrastructure.
 
@@ -38,7 +38,7 @@ The Next.js application owns orchestration and privileged work. Supabase owns du
 ## Request and rendering model
 
 - Create or restore the Supabase anonymous session through dynamically rendered Next.js code. Do not statically cache identity-bearing output.
-- Allow the authenticated browser client to perform ordinary Guest CRUD through Supabase under RLS.
+- Allow the authenticated browser client to perform ordinary reads and Notes CRUD through Supabase under RLS. Route server-side quota-checked Notebook and Source creation through narrow server handlers that authenticate the Guest, recheck ownership, and then use privileged database functions.
 - Keep file extraction, Passage creation, embeddings, vector retrieval, model calls, quota enforcement, and all service-role operations in server-only code.
 - Use relative same-origin requests for application routes so protected preview cookies remain attached.
 - Never expose a Supabase service-role key, model credential, raw embedding, or unrestricted retrieval function to the browser.

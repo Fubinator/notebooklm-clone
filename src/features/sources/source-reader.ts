@@ -18,17 +18,20 @@ export type LocatedPage = {
 };
 
 export type PdfSourceReader = {
-  read(content: Uint8Array): Promise<LocatedPage[]>;
+  read(content: Uint8Array, pageLimit?: number): Promise<LocatedPage[]>;
 };
 
-export function validatePastedText(content: string) {
+export function validatePastedText(
+  content: string,
+  characterLimit = PASTED_TEXT_CHARACTER_LIMIT,
+) {
   if (!content.trim()) {
     return { ok: false as const, message: "Paste some text to add a Source." };
   }
-  if (content.length > PASTED_TEXT_CHARACTER_LIMIT) {
+  if (content.length > characterLimit) {
     return {
       ok: false as const,
-      message: `Pasted text must be ${PASTED_TEXT_CHARACTER_LIMIT.toLocaleString()} characters or fewer.`,
+      message: `Pasted text must be ${characterLimit.toLocaleString()} characters or fewer.`,
     };
   }
   return { ok: true as const, content };
@@ -60,7 +63,10 @@ export function hasPdfSignature(content: Uint8Array) {
   return new TextDecoder("ascii").decode(content.slice(0, 5)) === "%PDF-";
 }
 
-export async function readPdf(content: Uint8Array): Promise<LocatedPage[]> {
+export async function readPdf(
+  content: Uint8Array,
+  pageLimit = PDF_PAGE_LIMIT,
+): Promise<LocatedPage[]> {
   if (!hasPdfSignature(content)) throw new Error("pdf_type_unsupported");
 
   try {
@@ -68,7 +74,7 @@ export async function readPdf(content: Uint8Array): Promise<LocatedPage[]> {
     // PDF.js transfers its input buffer to its worker. Parse a copy so callers
     // can still persist or otherwise reuse the original upload bytes.
     const document = await getDocumentProxy(content.slice());
-    if (document.numPages > PDF_PAGE_LIMIT) throw new Error("pdf_page_limit");
+    if (document.numPages > pageLimit) throw new Error("pdf_page_limit");
     const result = await extractText(document, { mergePages: false });
     const pages = (result.text as string[])
       .map((page, index) => ({

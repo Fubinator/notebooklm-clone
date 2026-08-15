@@ -2,6 +2,7 @@ import type { LocatedParagraph } from "./source-reader";
 
 export const PASSAGE_TARGET_CHARACTERS = 900;
 export const PASSAGE_OVERLAP_PARAGRAPHS = 1;
+export const PASSAGE_OVERLAP_CHARACTERS = 150;
 
 export type BuiltPassage = {
   ordinal: number;
@@ -11,7 +12,11 @@ export type BuiltPassage = {
   pageNumber?: number;
 };
 
-export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
+export function buildPassages(
+  paragraphs: LocatedParagraph[],
+  targetCharacters = PASSAGE_TARGET_CHARACTERS,
+  overlapParagraphs = PASSAGE_OVERLAP_PARAGRAPHS,
+): BuiltPassage[] {
   const passages: BuiltPassage[] = [];
   let start = 0;
 
@@ -21,7 +26,7 @@ export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
     while (end < paragraphs.length) {
       const nextLength =
         length + paragraphs[end]!.content.length + (length ? 2 : 0);
-      if (end > start && nextLength > PASSAGE_TARGET_CHARACTERS) break;
+      if (end > start && nextLength > targetCharacters) break;
       length = nextLength;
       end += 1;
     }
@@ -35,7 +40,7 @@ export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
     });
 
     if (end >= paragraphs.length) break;
-    start = Math.max(start + 1, end - PASSAGE_OVERLAP_PARAGRAPHS);
+    start = Math.max(start + 1, end - overlapParagraphs);
   }
 
   return passages;
@@ -43,23 +48,24 @@ export function buildPassages(paragraphs: LocatedParagraph[]): BuiltPassage[] {
 
 export function buildPdfPassages(
   pages: Array<{ page: number; content: string }>,
+  targetCharacters = PASSAGE_TARGET_CHARACTERS,
+  overlapCharacters = PASSAGE_OVERLAP_CHARACTERS,
 ): BuiltPassage[] {
+  if (overlapCharacters < 0 || overlapCharacters >= targetCharacters) {
+    throw new Error("passage_overlap_invalid");
+  }
+  const step = targetCharacters - overlapCharacters;
   const passages: BuiltPassage[] = [];
   for (const page of pages) {
-    for (
-      let start = 0;
-      start < page.content.length;
-      start += PASSAGE_TARGET_CHARACTERS
-    ) {
+    for (let start = 0; start < page.content.length; start += step) {
       passages.push({
         ordinal: passages.length,
-        content: page.content
-          .slice(start, start + PASSAGE_TARGET_CHARACTERS)
-          .trim(),
+        content: page.content.slice(start, start + targetCharacters).trim(),
         paragraphStart: 0,
         paragraphEnd: 0,
         pageNumber: page.page,
       });
+      if (start + targetCharacters >= page.content.length) break;
     }
   }
   return passages.filter(({ content }) => Boolean(content));
