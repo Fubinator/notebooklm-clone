@@ -35,6 +35,7 @@ import { createNoteRepository } from "@/features/notes/repository";
 import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
 import { validatePastedText } from "@/features/sources/source-reader";
+import { sourceTitleFromPdfFilename } from "@/features/sources/source-title";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
 import {
   DEFAULT_APPLICATION_LIMITS,
@@ -113,7 +114,7 @@ export function NotebookWorkspace({
   const [sourceKind, setSourceKind] = useState<"pasted_text" | "pdf">(
     "pasted_text",
   );
-  const [sourceFile, setSourceFile] = useState<File>();
+  const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [sourceError, setSourceError] = useState<string>();
   const [sourcePending, setSourcePending] = useState(false);
   const previousMobilePanel = useRef<MobilePanel>("conversation");
@@ -215,37 +216,82 @@ export function NotebookWorkspace({
     setSelectedCitation(undefined);
   }
 
-  async function handleAddSource(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!sourceTitle.trim())
-      return setSourceError("Enter a title for this Source.");
-    const validation = validatePastedText(
-      sourceContent,
-      limits.pastedTextCharacters,
-    );
-    if (sourceKind === "pasted_text" && !validation.ok)
-      return setSourceError(validation.message);
-    if (sourceKind === "pdf" && !sourceFile)
-      return setSourceError("Choose a PDF to upload.");
-    if (sourceKind === "pdf" && sourceFile!.size > limits.pdfBytes)
-      return setSourceError(
-        `PDFs must be ${formatMegabytes(limits.pdfBytes)} MB or smaller.`,
-      );
-    setSourcePending(true);
-    try {
-      await sourceLibrary.create(
-        sourceKind === "pdf"
-          ? { title: sourceTitle, kind: "pdf", file: sourceFile! }
-          : {
-              title: sourceTitle,
-              kind: "pasted_text",
-              content: validation.content!,
-            },
-      );
-      setSourceOpen(false);
+  function handleSourceOpenChange(open: boolean) {
+    if (!open) {
       setSourceTitle("");
       setSourceContent("");
-      setSourceFile(undefined);
+      setSourceFiles([]);
+      setSourceError(undefined);
+    }
+    setSourceOpen(open);
+  }
+
+  async function handleAddSource(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const availableSourceSlots = Math.max(
+      0,
+      limits.sourcesPerNotebook - sourceLibrary.sources.length,
+    );
+
+    if (sourceKind === "pasted_text") {
+      if (!sourceTitle.trim())
+        return setSourceError("Enter a title for this Source.");
+      const validation = validatePastedText(
+        sourceContent,
+        limits.pastedTextCharacters,
+      );
+      if (!validation.ok) return setSourceError(validation.message);
+    } else {
+      if (!sourceFiles.length)
+        return setSourceError("Choose one or more PDFs to upload.");
+      if (sourceFiles.length > availableSourceSlots)
+        return setSourceError(
+          `This Notebook has room for ${availableSourceSlots} more Source${availableSourceSlots === 1 ? "" : "s"}.`,
+        );
+      const oversizedFile = sourceFiles.find(
+        (file) => file.size > limits.pdfBytes,
+      );
+      if (oversizedFile)
+        return setSourceError(
+          `${oversizedFile.name} must be ${formatMegabytes(limits.pdfBytes)} MB or smaller.`,
+        );
+    }
+
+    setSourcePending(true);
+    try {
+      if (sourceKind === "pdf") {
+        const failures = await sourceLibrary.createMany(
+          sourceFiles.map((file) => ({
+            title: sourceTitleFromPdfFilename(file.name),
+            kind: "pdf" as const,
+            file,
+          })),
+        );
+        if (failures.length) {
+          const failedFiles = failures.map(({ index }) => sourceFiles[index]!);
+          const succeeded = sourceFiles.length - failures.length;
+          const firstFailure = failures[0]!;
+          const firstFailedFile = sourceFiles[firstFailure.index]!;
+          setSourceFiles(failedFiles);
+          setSourceError(
+            succeeded
+              ? `${succeeded} of ${sourceFiles.length} PDFs added. The PDFs that failed remain selected. ${firstFailedFile.name}: ${firstFailure.message}`
+              : `${firstFailedFile.name}: ${firstFailure.message}`,
+          );
+          return;
+        }
+      } else {
+        const validation = validatePastedText(
+          sourceContent,
+          limits.pastedTextCharacters,
+        );
+        await sourceLibrary.create({
+          title: sourceTitle,
+          kind: "pasted_text",
+          content: validation.content!,
+        });
+      }
+      handleSourceOpenChange(false);
     } catch (error) {
       setSourceError(
         error instanceof Error
@@ -416,11 +462,11 @@ export function NotebookWorkspace({
 
       <AddSourceDialog
         open={sourceOpen}
-        onOpenChange={setSourceOpen}
+        onOpenChange={handleSourceOpenChange}
         title={sourceTitle}
         content={sourceContent}
         kind={sourceKind}
-        file={sourceFile}
+        files={sourceFiles}
         onTitleChange={(value) => {
           setSourceTitle(value);
           setSourceError(undefined);
@@ -433,13 +479,18 @@ export function NotebookWorkspace({
           setSourceKind(value);
           setSourceError(undefined);
         }}
-        onFileChange={(value) => {
-          setSourceFile(value);
+        onFilesChange={(value) => {
+          setSourceFiles(value);
           setSourceError(undefined);
         }}
+        onFileError={setSourceError}
         error={sourceError}
         pending={sourcePending}
         onSubmit={(event) => void handleAddSource(event)}
+        availablePdfSlots={Math.max(
+          0,
+          limits.sourcesPerNotebook - sourceLibrary.sources.length,
+        )}
         limits={sourceInputLimits(limits)}
       />
 

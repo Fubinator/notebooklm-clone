@@ -7,6 +7,15 @@ import type { SourceRepository } from "./repository";
 
 export type SourceLoadState = "empty" | "loading" | "ready" | "error";
 
+type NewSource =
+  | { title: string; kind: "pasted_text"; content: string }
+  | { title: string; kind: "pdf"; file: File };
+
+export type SourceCreationFailure = {
+  index: number;
+  message: string;
+};
+
 export function useSourceLibrary({
   notebookId,
   repository,
@@ -102,14 +111,34 @@ export function useSourceLibrary({
     status: visibleStatus,
     select: setSelectedId,
     retry: load,
-    async create(
-      input:
-        | { title: string; kind: "pasted_text"; content: string }
-        | { title: string; kind: "pdf"; file: File },
-    ) {
+    async create(input: NewSource) {
       if (!notebookId) return;
       await repository.create({ notebookId, ...input });
       await load({ preserveSources: true });
+    },
+    async createMany(
+      inputs: readonly NewSource[],
+    ): Promise<SourceCreationFailure[]> {
+      if (!notebookId || !inputs.length) return [];
+
+      const results = await Promise.allSettled(
+        inputs.map((input) => repository.create({ notebookId, ...input })),
+      );
+      await load({ preserveSources: true });
+
+      return results.flatMap((result, index) =>
+        result.status === "rejected"
+          ? [
+              {
+                index,
+                message:
+                  result.reason instanceof Error
+                    ? result.reason.message
+                    : "The Source could not be added.",
+              },
+            ]
+          : [],
+      );
     },
     process,
   };

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent } from "react";
+import { CloudUpload, X } from "lucide-react";
+import { DragEvent, FormEvent, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +15,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  SOURCE_TITLE_CHARACTER_LIMIT,
+  sourceTitleFromPdfFilename,
+} from "@/features/sources/source-title";
+import {
   DEFAULT_APPLICATION_LIMITS,
   formatMegabytes,
   sourceInputLimits as selectSourceInputLimits,
   type SourceInputLimits,
 } from "@/lib/limits";
+import { cn } from "@/lib/utils";
 
 export function AddSourceDialog({
   open,
@@ -26,14 +32,16 @@ export function AddSourceDialog({
   title,
   content,
   kind,
-  file,
+  files,
   onTitleChange,
   onContentChange,
   onKindChange,
-  onFileChange,
+  onFilesChange,
+  onFileError,
   error,
   pending,
   onSubmit,
+  availablePdfSlots = DEFAULT_APPLICATION_LIMITS.sourcesPerNotebook,
   limits = selectSourceInputLimits(DEFAULT_APPLICATION_LIMITS),
 }: {
   open: boolean;
@@ -41,27 +49,65 @@ export function AddSourceDialog({
   title: string;
   content: string;
   kind: "pasted_text" | "pdf";
-  file?: File;
+  files: readonly File[];
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
   onKindChange: (value: "pasted_text" | "pdf") => void;
-  onFileChange: (value?: File) => void;
+  onFilesChange: (value: File[]) => void;
+  onFileError: (message: string) => void;
   error?: string;
   pending: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  availablePdfSlots?: number;
   limits?: SourceInputLimits;
 }) {
-  const errorId = "pasted-source-error";
+  const errorId = "source-error";
+  const sourceCount = files.length;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const submitLabel = pending
+    ? sourceCount > 1
+      ? `Adding ${sourceCount} Sources…`
+      : "Adding…"
+    : kind === "pdf" && sourceCount > 1
+      ? `Add ${sourceCount} Sources`
+      : "Add Source";
+
+  function addPdfFiles(nextFiles: File[]) {
+    const pdfFiles = nextFiles.filter(
+      (file) =>
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf"),
+    );
+    if (pdfFiles.length) onFilesChange([...files, ...pdfFiles]);
+    if (pdfFiles.length !== nextFiles.length)
+      onFileError("Only PDF files can be added.");
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    addPdfFiles(Array.from(event.dataTransfer.files));
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) setDragActive(false);
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Add Source</DialogTitle>
+          <DialogTitle>
+            {kind === "pdf" ? "Add PDF Sources" : "Add Source"}
+          </DialogTitle>
           <DialogDescription>
             Paste up to {limits.pastedTextCharacters.toLocaleString()}{" "}
-            characters or upload a PDF up to {formatMegabytes(limits.pdfBytes)}{" "}
-            MB and {limits.pdfPages} pages. Locations are preserved for
-            Citations.
+            characters or upload one or more PDFs. Each PDF can be up to{" "}
+            {formatMegabytes(limits.pdfBytes)} MB and {limits.pdfPages} pages.
+            Locations are preserved for Citations.
           </DialogDescription>
         </DialogHeader>
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -73,24 +119,9 @@ export function AddSourceDialog({
                 variant={kind === option ? "secondary" : "ghost"}
                 onClick={() => onKindChange(option)}
               >
-                {option === "pdf" ? "Upload PDF" : "Paste text"}
+                {option === "pdf" ? "Upload PDFs" : "Paste text"}
               </Button>
             ))}
-          </div>
-          <div>
-            <label
-              className="mb-2 block text-xs font-semibold"
-              htmlFor="source-title"
-            >
-              Source title
-            </label>
-            <Input
-              id="source-title"
-              autoFocus
-              maxLength={120}
-              value={title}
-              onChange={(event) => onTitleChange(event.target.value)}
-            />
           </div>
           {kind === "pdf" ? (
             <div>
@@ -98,51 +129,157 @@ export function AddSourceDialog({
                 className="mb-2 block text-xs font-semibold"
                 htmlFor="source-file"
               >
-                PDF file
+                PDF files
               </label>
-              <Input
-                id="source-file"
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={(event) => onFileChange(event.target.files?.[0])}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? errorId : "pdf-limits"}
-              />
-              <p id="pdf-limits" className="mt-2 text-xs text-[var(--muted)]">
-                PDF only · {formatMegabytes(limits.pdfBytes)} MB maximum ·{" "}
-                {limits.pdfPages} pages maximum · password-protected and scanned
-                PDFs are not supported
+              <div
+                className={cn(
+                  "overflow-hidden rounded-2xl border-2 border-dashed transition-colors",
+                  dragActive
+                    ? "border-[var(--accent-strong)] bg-[var(--sage)]"
+                    : "border-[var(--line-strong)] bg-white/55 hover:border-[var(--accent-strong)] hover:bg-white/80",
+                )}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  id="source-file"
+                  className="sr-only"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  onChange={(event) => {
+                    addPdfFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = "";
+                  }}
+                  aria-label="PDF files"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={`pdf-limits${error ? ` ${errorId}` : ""}`}
+                />
+                <button
+                  type="button"
+                  autoFocus
+                  className="flex min-h-36 w-full flex-col items-center justify-center px-5 py-6 text-center focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none focus-visible:ring-inset disabled:opacity-50"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending}
+                >
+                  <span className="grid size-10 place-items-center rounded-full bg-white text-[var(--accent-strong)] shadow-sm">
+                    <CloudUpload className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold">
+                    Drop PDFs here
+                  </span>
+                  <span className="mt-1 text-xs text-[var(--muted)]">
+                    or click to browse your files
+                  </span>
+                  <span
+                    id="pdf-limits"
+                    className="mt-2 text-[11px] leading-4 text-[var(--muted)]"
+                  >
+                    Up to {availablePdfSlots} PDF
+                    {availablePdfSlots === 1 ? "" : "s"} ·{" "}
+                    {formatMegabytes(limits.pdfBytes)} MB / {limits.pdfPages}{" "}
+                    pages each
+                  </span>
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-[var(--muted)]">
+                Password-protected and scanned PDFs are not supported.
               </p>
-              {file ? (
-                <p className="mt-2 text-xs font-semibold">
-                  {file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB
-                </p>
+              {files.length ? (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-[var(--muted)]">
+                    {files.length} PDF{files.length === 1 ? "" : "s"} selected.
+                    Source titles are generated from filenames.
+                  </p>
+                  <ul
+                    className="mt-2 max-h-40 space-y-2 overflow-y-auto"
+                    aria-label="Generated Source titles"
+                  >
+                    {files.map((file, index) => (
+                      <li
+                        key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                        className="relative rounded-xl border border-[var(--line)] bg-white/70 py-2 pr-10 pl-3"
+                      >
+                        <span className="block truncate text-xs font-semibold">
+                          {sourceTitleFromPdfFilename(file.name)}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">
+                          {file.name} · {(file.size / 1024 / 1024).toFixed(1)}{" "}
+                          MB
+                        </span>
+                        <button
+                          type="button"
+                          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-full text-[var(--muted)] transition-colors hover:bg-black/5 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:opacity-50"
+                          onClick={() =>
+                            onFilesChange(
+                              files.filter(
+                                (_, fileIndex) => fileIndex !== index,
+                              ),
+                            )
+                          }
+                          disabled={pending}
+                          aria-label={`Remove ${file.name}`}
+                          title={`Remove ${file.name}`}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </div>
           ) : (
-            <div>
-              <div className="mb-2 flex justify-between gap-3 text-xs font-semibold">
-                <label htmlFor="source-content">Pasted text</label>
-                <span
-                  className={
-                    content.length > limits.pastedTextCharacters
-                      ? "text-[var(--danger)]"
-                      : "text-[var(--muted)]"
-                  }
+            <>
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold"
+                  htmlFor="source-title"
                 >
-                  {content.length.toLocaleString()} /{" "}
-                  {limits.pastedTextCharacters.toLocaleString()}
-                </span>
+                  Source title
+                </label>
+                <Input
+                  id="source-title"
+                  autoFocus
+                  maxLength={SOURCE_TITLE_CHARACTER_LIMIT}
+                  value={title}
+                  onChange={(event) => onTitleChange(event.target.value)}
+                />
               </div>
-              <textarea
-                id="source-content"
-                className="min-h-56 w-full resize-y rounded-xl border border-[var(--line-strong)] bg-white p-3.5 text-sm leading-6 outline-none focus:border-[var(--ink)] focus:ring-2 focus:ring-[var(--sage)]"
-                value={content}
-                onChange={(event) => onContentChange(event.target.value)}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? errorId : undefined}
-              />
-            </div>
+              <div>
+                <div className="mb-2 flex justify-between gap-3 text-xs font-semibold">
+                  <label htmlFor="source-content">Pasted text</label>
+                  <span
+                    className={
+                      content.length > limits.pastedTextCharacters
+                        ? "text-[var(--danger)]"
+                        : "text-[var(--muted)]"
+                    }
+                  >
+                    {content.length.toLocaleString()} /{" "}
+                    {limits.pastedTextCharacters.toLocaleString()}
+                  </span>
+                </div>
+                <textarea
+                  id="source-content"
+                  className="min-h-56 w-full resize-y rounded-xl border border-[var(--line-strong)] bg-white p-3.5 text-sm leading-6 outline-none focus:border-[var(--ink)] focus:ring-2 focus:ring-[var(--sage)]"
+                  value={content}
+                  onChange={(event) => onContentChange(event.target.value)}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? errorId : undefined}
+                />
+              </div>
+            </>
           )}
           {error ? (
             <p
@@ -160,7 +297,7 @@ export function AddSourceDialog({
               </Button>
             </DialogClose>
             <Button type="submit" disabled={pending}>
-              {pending ? "Adding…" : "Add Source"}
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
