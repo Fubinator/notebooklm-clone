@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -108,9 +109,13 @@ export function AddSourceDialog({
                 accept="application/pdf,.pdf"
                 multiple
                 autoFocus
-                onChange={(event) =>
-                  onFilesChange(Array.from(event.target.files ?? []))
-                }
+                onChange={(event) => {
+                  onFilesChange([
+                    ...files,
+                    ...Array.from(event.target.files ?? []),
+                  ]);
+                  event.currentTarget.value = "";
+                }}
                 aria-invalid={Boolean(error)}
                 aria-describedby={`pdf-limits${error ? ` ${errorId}` : ""}`}
               />
@@ -134,7 +139,7 @@ export function AddSourceDialog({
                     {files.map((file, index) => (
                       <li
                         key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                        className="rounded-xl border border-[var(--line)] bg-white/70 px-3 py-2"
+                        className="relative rounded-xl border border-[var(--line)] bg-white/70 py-2 pr-10 pl-3"
                       >
                         <span className="block truncate text-xs font-semibold">
                           {sourceTitleFromPdfFilename(file.name)}
@@ -143,6 +148,22 @@ export function AddSourceDialog({
                           {file.name} · {(file.size / 1024 / 1024).toFixed(1)}{" "}
                           MB
                         </span>
+                        <button
+                          type="button"
+                          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-full text-[var(--muted)] transition-colors hover:bg-black/5 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:opacity-50"
+                          onClick={() =>
+                            onFilesChange(
+                              files.filter(
+                                (_, fileIndex) => fileIndex !== index,
+                              ),
+                            )
+                          }
+                          disabled={pending}
+                          aria-label={`Remove ${file.name}`}
+                          title={`Remove ${file.name}`}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                        </button>
                       </li>
                     ))}
                   </ul>

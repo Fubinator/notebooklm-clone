@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConversationMessage } from "@/features/conversations/model";
@@ -369,6 +375,47 @@ describe("Notebook workspace", () => {
         screen.queryByRole("dialog", { name: "Add PDF Sources" }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("removes a selected PDF from its preview before upload", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
+
+    const firstPdf = new File(["%PDF-first"], "first-report.pdf", {
+      type: "application/pdf",
+    });
+    const secondPdf = new File(["%PDF-second"], "second-report.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText("PDF files"), {
+      target: { files: [firstPdf, secondPdf] },
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "Add PDF Sources" });
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Remove first-report.pdf",
+      }),
+    );
+
+    expect(within(dialog).queryByText("first report")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("second report")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add Source" }));
+
+    await waitFor(() => expect(mocks.sourceCreate).toHaveBeenCalledTimes(1));
+    expect(mocks.sourceCreate).toHaveBeenCalledWith({
+      notebookId: first.id,
+      title: "second report",
+      kind: "pdf",
+      file: secondPdf,
+    });
   });
 
   it("checks a PDF batch against the remaining Source slots before upload", async () => {
