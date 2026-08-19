@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, FileText, LoaderCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  FileText,
+  LoaderCircle,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,27 +18,68 @@ import {
 export function SourcePreview({
   source,
   onClose,
+  canRemove,
+  removing,
+  removalFailed,
+  onRemove,
+  onRetryRemoval,
 }: {
   source: ReadableSource;
   onClose: () => void;
+  canRemove: boolean;
+  removing: boolean;
+  removalFailed: boolean;
+  onRemove: () => void;
+  onRetryRemoval: () => void;
 }) {
+  const deletionStarted = source.processing_stage === "deleting";
+
   return (
     <article
       className="min-h-0 flex-1 overflow-y-auto"
       aria-label="Source preview"
     >
       <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <ArrowLeft className="size-3.5" /> Back to Conversation
-        </Button>
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <ArrowLeft className="size-3.5" /> Back to Conversation
+          </Button>
+          {canRemove ? (
+            <Button
+              variant={deletionStarted ? "secondary" : "danger"}
+              size="sm"
+              disabled={removing}
+              onClick={deletionStarted ? onRetryRemoval : onRemove}
+            >
+              {removing ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : deletionStarted ? (
+                <RefreshCw className="size-3.5" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+              {removing
+                ? "Removing…"
+                : removalFailed || deletionStarted
+                  ? "Retry removal"
+                  : "Remove source"}
+            </Button>
+          ) : null}
+        </div>
         <div className="mt-5 flex items-start gap-4">
           <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--sage)]">
             <FileText className="size-5" />
           </span>
           <div className="min-w-0">
             <p className="eyebrow">
-              {source.processing_stage === "ready" ? "Ready" : "Processing"} ·{" "}
-              {source.passages.length} Passages
+              {removing
+                ? "Removing"
+                : removalFailed || deletionStarted
+                  ? "Removal incomplete"
+                  : source.processing_stage === "ready"
+                    ? "Ready"
+                    : "Processing"}{" "}
+              · {source.passages.length} Passages
             </p>
             <h1 className="mt-1 font-serif text-3xl font-semibold tracking-[-0.03em]">
               {source.title}
@@ -68,7 +116,9 @@ export function SourcePreview({
           {!source.passages.length ? (
             <div className="rounded-2xl border border-[var(--line)] bg-white p-8 text-center text-sm text-[var(--muted)]">
               <LoaderCircle className="mx-auto mb-3 size-5 animate-spin" />
-              The extracted text preview will appear after Passages are built.
+              {deletionStarted
+                ? "Source cleanup is waiting to finish."
+                : "The extracted text preview will appear after Passages are built."}
             </div>
           ) : null}
           {source.passages.map((passage) => (

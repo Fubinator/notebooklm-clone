@@ -48,6 +48,7 @@ The product user is a person researching a small collection of documents. The ev
 
 - Create, list, rename, and delete Notebooks
 - Add multiple Sources to a Notebook
+- Permanently remove private Sources while retaining historical Answers, Citations, and Notes
 - PDF upload and pasted-text input
 - Persisted, visible Processing Stages with retryable failures
 - Source list and readable Source preview
@@ -87,6 +88,8 @@ The product user is a person researching a small collection of documents. The ev
 - Source text is untrusted content, never an instruction to the model or application.
 - A failed or partially streamed Answer is not persisted as a successful Answer.
 - Example Notebook Sources are immutable to Guests.
+- A Guest may remove only Sources in their own private Notebooks.
+- Source Removal deletes original content and Passages but retains historical Answers, Citation snapshots, and Notes.
 - Each Guest sees only their own Conversation and Notes in the Example Notebook.
 - A Source is unavailable for Questions until its Processing Stage is `ready`.
 - Limits are visible before a Guest attempts the constrained action.

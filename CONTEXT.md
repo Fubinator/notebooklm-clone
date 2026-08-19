@@ -16,6 +16,10 @@ _Avoid_: Demo project, sample workspace
 A PDF or pasted text added to a notebook as research material.
 _Avoid_: Document, file
 
+**Source Removal**:
+The permanent removal of a private Source, its original content, and its Passages. Historical Answers, Citations, and Notes remain.
+_Avoid_: Detach, archive, hide
+
 **Passage**:
 A location-aware portion of a source that can be retrieved as evidence for an answer.
 _Avoid_: Chunk, segment
@@ -49,5 +53,5 @@ A person represented by an anonymous authenticated identity and tied to the curr
 _Avoid_: Anonymous user, account
 
 **Processing Stage**:
-The persisted point a source has reached while becoming available for grounded questions: uploaded, extracting, chunking, embedding, ready, or failed.
+The persisted point a Source has reached while becoming available for grounded Questions or being removed: uploaded, extracting, chunking, embedding, ready, failed, or deleting.
 _Avoid_: Job status, upload status

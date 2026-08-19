@@ -39,6 +39,7 @@ The Next.js application owns orchestration and privileged work. Supabase owns du
 
 - Create or restore the Supabase anonymous session through dynamically rendered Next.js code. Do not statically cache identity-bearing output.
 - Allow the authenticated browser client to perform ordinary reads and Notes CRUD through Supabase under RLS. Route server-side quota-checked Notebook and Source creation through narrow server handlers that authenticate the Guest, recheck ownership, and then use privileged database functions.
+- Route Source and Notebook deletion through server handlers that persist deletion intent, recheck ownership, remove private Storage objects, and only then delete database records.
 - Keep file extraction, Passage creation, embeddings, vector retrieval, model calls, quota enforcement, and all service-role operations in server-only code.
 - Use relative same-origin requests for application routes so protected preview cookies remain attached.
 - Never expose a Supabase service-role key, model credential, raw embedding, or unrestricted retrieval function to the browser.
@@ -102,6 +103,12 @@ The design avoids generic pass-through wrappers around Supabase. Modules are int
 
 **Depth:** Owns transition validation, idempotency, locking, limits, extraction, Passage construction, embedding batches, retry metadata, and cleanup. Callers do not coordinate individual storage or database steps.
 
+### Source Removal
+
+**Interface:** Permanently remove one authorized private Source or retry an interrupted removal.
+
+**Depth:** Owns the `deleting` transition, ingestion cancellation, Storage-first cleanup, database cascades, retry recovery, and preservation of historical Answer, Citation, and Note snapshots.
+
 ### Retrieval
 
 **Interface:** Given an authorized Notebook and Question, return an ordered evidence set of location-aware Passages plus an adequacy result.
@@ -138,6 +145,14 @@ stateDiagram-v2
     failed --> extracting: retry extraction
     failed --> chunking: retry chunking
     failed --> embedding: retry embedding
+    uploaded --> deleting
+    extracting --> deleting
+    chunking --> deleting
+    embedding --> deleting
+    ready --> deleting
+    failed --> deleting
+    deleting --> deleting: retry cleanup
+    deleting --> [*]: Storage and records removed
 ```
 
 1. Validate declared type, detected type, size, page or character limits, Notebook ownership, quota, and concurrency.
@@ -148,6 +163,8 @@ stateDiagram-v2
 6. Source Ingestion embeds Passages in bounded batches and stores vectors of one configured dimension.
 7. Mark the Source `ready` only when every required Passage is queryable.
 8. On failure, store a safe error category, retry stage, attempt count, and correlation identifier. Retrying repeats only an idempotent stage.
+
+Source Removal marks any private Source `deleting`, releases its ingestion lease, and excludes it from Retrieval before cleanup. The request removes a private PDF object first and then hard-deletes the Source, cascading Passages while preserving historical Answer, Citation, and Note snapshots. An interrupted removal remains visible and resumes through a later browser request; no background queue is required.
 
 This is request-driven orchestration, not a durable background queue. Persisted stages allow refresh and retry without placing the entire ingestion pipeline in one long request.
 

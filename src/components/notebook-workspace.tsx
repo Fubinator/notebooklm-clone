@@ -24,6 +24,7 @@ import {
 import { ConversationPane } from "@/components/conversation-pane";
 import { SourcesPane } from "@/components/sources-pane";
 import { AddSourceDialog } from "@/components/source-dialog";
+import { RemoveSourceDialog } from "@/components/source-removal-dialog";
 import { StudioPane, type StudioView } from "@/components/studio-pane";
 import type { Citation } from "@/features/conversations/model";
 import { createConversationRepository } from "@/features/conversations/repository";
@@ -34,6 +35,7 @@ import { useNotebookWorkspace } from "@/features/notebooks/use-notebook-workspac
 import { createNoteRepository } from "@/features/notes/repository";
 import { useNotes } from "@/features/notes/use-notes";
 import { createSourceRepository } from "@/features/sources/repository";
+import type { ReadableSource } from "@/features/sources/model";
 import { validatePastedText } from "@/features/sources/source-reader";
 import { sourceTitleFromPdfFilename } from "@/features/sources/source-title";
 import { useSourceLibrary } from "@/features/sources/use-source-library";
@@ -117,6 +119,9 @@ export function NotebookWorkspace({
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [sourceError, setSourceError] = useState<string>();
   const [sourcePending, setSourcePending] = useState(false);
+  const [sourceRemovalTarget, setSourceRemovalTarget] =
+    useState<ReadableSource>();
+  const [sourceRemovalError, setSourceRemovalError] = useState<string>();
   const previousMobilePanel = useRef<MobilePanel>("conversation");
 
   useEffect(() => {
@@ -176,6 +181,30 @@ export function NotebookWorkspace({
     if (!workspace.activeNotebook) return;
     setFormError(undefined);
     setDeleteTarget(workspace.activeNotebook);
+  }
+
+  function openSourceRemoval(source: ReadableSource) {
+    if (workspace.activeNotebook?.is_example) return;
+    setSourceRemovalError(undefined);
+    setSourceRemovalTarget(source);
+  }
+
+  function focusAfterSourceRemoval(sourceId: string) {
+    const removedIndex = sourceLibrary.sources.findIndex(
+      ({ id }) => id === sourceId,
+    );
+    const remaining = sourceLibrary.sources.filter(({ id }) => id !== sourceId);
+    const focusId =
+      remaining[Math.min(Math.max(removedIndex, 0), remaining.length - 1)]?.id;
+    setMobilePanel("sources");
+    window.setTimeout(() => {
+      const nextSource = focusId
+        ? document.querySelector<HTMLElement>(
+            `[data-source-preview="${focusId}"]`,
+          )
+        : undefined;
+      (nextSource ?? document.getElementById("sources-heading"))?.focus();
+    });
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -303,6 +332,42 @@ export function NotebookWorkspace({
     }
   }
 
+  async function handleSourceRemoval() {
+    if (!sourceRemovalTarget) return;
+    const sourceId = sourceRemovalTarget.id;
+    setSourceRemovalError(undefined);
+    try {
+      if (!(await sourceLibrary.remove(sourceId))) return;
+      setSourceRemovalTarget(undefined);
+      focusAfterSourceRemoval(sourceId);
+    } catch (error) {
+      setSourceRemovalError(
+        error instanceof Error
+          ? error.message
+          : "Source removal did not finish. Try again.",
+      );
+    }
+  }
+
+  async function retrySourceRemoval(sourceId: string) {
+    try {
+      if (!(await sourceLibrary.remove(sourceId))) return;
+      if (sourceRemovalTarget?.id === sourceId) {
+        setSourceRemovalTarget(undefined);
+        setSourceRemovalError(undefined);
+      }
+      focusAfterSourceRemoval(sourceId);
+    } catch (error) {
+      if (sourceRemovalTarget?.id === sourceId) {
+        setSourceRemovalError(
+          error instanceof Error
+            ? error.message
+            : "Source removal did not finish. Try again.",
+        );
+      }
+    }
+  }
+
   return (
     <main className="flex h-dvh min-h-[640px] flex-col overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
       <NotebookHeader
@@ -348,6 +413,10 @@ export function NotebookWorkspace({
             setSourceOpen(true);
           }}
           onProcess={(sourceId) => void sourceLibrary.process(sourceId)}
+          onRemove={openSourceRemoval}
+          onRetryRemoval={(sourceId) => void retrySourceRemoval(sourceId)}
+          removingSourceId={sourceLibrary.removingId}
+          removalFailedIds={sourceLibrary.removalFailedIds}
           sourceLimit={limits.sourcesPerNotebook}
           ingestionLimit={limits.concurrentIngestionsPerGuest}
         />
@@ -362,10 +431,15 @@ export function NotebookWorkspace({
           canAsk={
             sourceLibrary.status === "ready" &&
             sourceLibrary.sources.some(
-              ({ processing_stage }) => processing_stage === "ready",
+              ({ id, processing_stage }) =>
+                processing_stage === "ready" && id !== sourceLibrary.removingId,
             )
           }
           onCloseSource={() => sourceLibrary.select(undefined)}
+          removingSourceId={sourceLibrary.removingId}
+          removalFailedIds={sourceLibrary.removalFailedIds}
+          onRemoveSource={openSourceRemoval}
+          onRetrySourceRemoval={(sourceId) => void retrySourceRemoval(sourceId)}
           onCreate={openCreate}
           onAsk={conversation.ask}
           onRetry={() => void conversation.retry()}
@@ -494,17 +568,37 @@ export function NotebookWorkspace({
         limits={sourceInputLimits(limits)}
       />
 
+      <RemoveSourceDialog
+        source={sourceRemovalTarget}
+        onOpenChange={(open) => {
+          if (!open) setSourceRemovalTarget(undefined);
+          setSourceRemovalError(undefined);
+        }}
+        error={sourceRemovalError}
+        pending={sourceLibrary.removingId === sourceRemovalTarget?.id}
+        onConfirm={() => void handleSourceRemoval()}
+      />
+
       <div className="sr-only" role="status" aria-live="polite">
-        {notes.notice ?? workspace.notice ?? initialError}
+        {notes.notice ??
+          sourceLibrary.notice ??
+          workspace.notice ??
+          initialError}
       </div>
-      {notes.notice || workspace.notice || initialError ? (
+      {notes.notice ||
+      sourceLibrary.notice ||
+      workspace.notice ||
+      initialError ? (
         <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-xl bg-[var(--ink)] px-4 py-3 text-sm font-medium text-white shadow-xl">
-          {notes.notice || workspace.notice ? (
+          {notes.notice || sourceLibrary.notice || workspace.notice ? (
             <Check className="size-4" />
           ) : (
             <X className="size-4" />
           )}
-          {notes.notice ?? workspace.notice ?? initialError}
+          {notes.notice ??
+            sourceLibrary.notice ??
+            workspace.notice ??
+            initialError}
         </div>
       ) : null}
     </main>

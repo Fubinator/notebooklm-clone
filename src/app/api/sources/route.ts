@@ -92,8 +92,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const admin = createAdminClient();
-  const { data: notebook } = await admin
+  const { data: notebook } = await supabase
     .from("notebooks")
     .select("id")
     .eq("id", input.notebookId)
@@ -106,6 +105,7 @@ export async function POST(request: Request) {
       { status: 404 },
     );
 
+  const admin = createAdminClient();
   const sourceLimit = limits.sourcesPerNotebook;
   const sourceId = crypto.randomUUID();
   const storagePath =

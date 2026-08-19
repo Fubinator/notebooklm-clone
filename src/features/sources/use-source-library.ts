@@ -29,11 +29,50 @@ export function useSourceLibrary({
   const [status, setStatus] = useState<SourceLoadState>(
     notebookId ? "loading" : "empty",
   );
+  const [removingId, setRemovingId] = useState<string>();
+  const [removalFailedIds, setRemovalFailedIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [notice, setNotice] = useState<string>();
   const requestId = useRef(0);
   const advancing = useRef(new Set<string>());
+  const removalInFlight = useRef<string | undefined>(undefined);
+  const deletionIntentIds = useRef(new Set<string>());
+  const autoRetriedIds = useRef(new Set<string>());
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const showNotice = useCallback((message: string) => {
+    setNotice(message);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(undefined), 2600);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    deletionIntentIds.current.clear();
+    autoRetriedIds.current.clear();
+    removalInFlight.current = undefined;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setRemovingId(undefined);
+      setRemovalFailedIds(new Set());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [notebookId]);
 
   const load = useCallback(
-    async (options?: { preserveSources?: boolean }) => {
+    async (options?: {
+      preserveSources?: boolean;
+    }): Promise<ReadableSource[] | undefined> => {
       const currentRequest = ++requestId.current;
       const preserveSources = options?.preserveSources ?? false;
       if (!preserveSources) setSelectedId(undefined);
@@ -42,7 +81,7 @@ export function useSourceLibrary({
         setSources([]);
         setLoadedNotebookId(undefined);
         setStatus("empty");
-        return;
+        return [];
       }
 
       if (!preserveSources) setSources([]);
@@ -50,12 +89,25 @@ export function useSourceLibrary({
       if (!preserveSources) setStatus("loading");
       try {
         const loaded = await repository.list(notebookId);
-        if (requestId.current !== currentRequest) return;
+        if (requestId.current !== currentRequest) return undefined;
         setSources(loaded);
+        setRemovalFailedIds(
+          (current) =>
+            new Set(
+              [...current].filter((id) =>
+                loaded.some(
+                  (source) =>
+                    source.id === id && source.processing_stage === "deleting",
+                ),
+              ),
+            ),
+        );
         setStatus("ready");
+        return loaded;
       } catch {
-        if (requestId.current !== currentRequest) return;
+        if (requestId.current !== currentRequest) return undefined;
         setStatus("error");
+        return undefined;
       }
     },
     [notebookId, repository],
@@ -79,6 +131,12 @@ export function useSourceLibrary({
       try {
         await repository.advance(sourceId);
         await load({ preserveSources: true });
+      } catch (error) {
+        if (deletionIntentIds.current.has(sourceId)) {
+          await load({ preserveSources: true });
+          return;
+        }
+        throw error;
       } finally {
         advancing.current.delete(sourceId);
       }
@@ -93,8 +151,95 @@ export function useSourceLibrary({
         processing_stage,
       ),
     );
-    if (next) void process(next.id);
+    if (!next) return;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void process(next.id).catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [process, sources, status]);
+
+  const remove = useCallback(
+    async (sourceId: string) => {
+      if (removalInFlight.current) return false;
+
+      removalInFlight.current = sourceId;
+      deletionIntentIds.current.add(sourceId);
+      autoRetriedIds.current.add(sourceId);
+      setRemovingId(sourceId);
+      setRemovalFailedIds((current) => {
+        const next = new Set(current);
+        next.delete(sourceId);
+        return next;
+      });
+
+      try {
+        const result = await repository.remove(sourceId);
+        if (result === "missing") {
+          const refreshed = await load({ preserveSources: true });
+          if (!refreshed) {
+            throw new Error(
+              "Source removal could not be confirmed. Try again.",
+            );
+          }
+          if (refreshed.some(({ id }) => id === sourceId)) {
+            throw new Error("That Source is not available.");
+          }
+        } else {
+          setSources((current) => current.filter(({ id }) => id !== sourceId));
+          await load({ preserveSources: true });
+        }
+
+        setSelectedId((current) =>
+          current === sourceId ? undefined : current,
+        );
+        setRemovalFailedIds((current) => {
+          const next = new Set(current);
+          next.delete(sourceId);
+          return next;
+        });
+        showNotice("Source removed");
+        return true;
+      } catch (error) {
+        const refreshed = await load({ preserveSources: true });
+        const deletionStarted = refreshed?.some(
+          (source) =>
+            source.id === sourceId && source.processing_stage === "deleting",
+        );
+        if (deletionStarted) {
+          setRemovalFailedIds((current) => new Set(current).add(sourceId));
+        } else {
+          deletionIntentIds.current.delete(sourceId);
+        }
+        throw error;
+      } finally {
+        removalInFlight.current = undefined;
+        setRemovingId(undefined);
+      }
+    },
+    [load, repository, showNotice],
+  );
+
+  useEffect(() => {
+    if (status !== "ready" || removalInFlight.current) return;
+    const interrupted = sources.find(
+      (source) =>
+        source.processing_stage === "deleting" &&
+        !autoRetriedIds.current.has(source.id),
+    );
+    if (!interrupted) return;
+    deletionIntentIds.current.add(interrupted.id);
+    autoRetriedIds.current.add(interrupted.id);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void remove(interrupted.id).catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [remove, sources, status]);
 
   const showsCurrentNotebook = loadedNotebookId === notebookId;
   const visibleSources = showsCurrentNotebook ? sources : [];
@@ -109,6 +254,9 @@ export function useSourceLibrary({
     selectedSource: visibleSources.find(({ id }) => id === selectedId),
     selectedId,
     status: visibleStatus,
+    removingId,
+    removalFailedIds,
+    notice,
     select: setSelectedId,
     retry: load,
     async create(input: NewSource) {
@@ -141,5 +289,6 @@ export function useSourceLibrary({
       );
     },
     process,
+    remove,
   };
 }

@@ -147,7 +147,7 @@ export function useNotebookWorkspace({
         showNotice("Notebook deleted");
         return { ok: true };
       } catch (error) {
-        return { ok: false, message: friendlyError(error) };
+        return { ok: false, message: friendlyRemovalError(error) };
       } finally {
         setPending(false);
       }
@@ -183,4 +183,17 @@ function friendlyError(error: unknown) {
   }
 
   return "That change didn't save. Please try again.";
+}
+
+function friendlyRemovalError(error: unknown) {
+  if (error instanceof Error && error.message.includes("Notebook removal")) {
+    return error.message;
+  }
+  if (
+    error instanceof Error &&
+    error.message.includes("Notebook changed while it was being removed")
+  ) {
+    return error.message;
+  }
+  return friendlyError(error);
 }

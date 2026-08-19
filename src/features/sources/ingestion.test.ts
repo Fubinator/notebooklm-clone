@@ -94,6 +94,25 @@ function persistence(current: IngestionSource) {
 }
 
 describe("Source Ingestion", () => {
+  it("never advances a Source whose removal has begun", async () => {
+    const state = persistence(source("deleting"));
+
+    await expect(
+      advanceSource("source", "correlation", {
+        persistence: state.mock,
+        embed: vi.fn(),
+        concurrentLimit: 1,
+      }),
+    ).rejects.toThrow("source_deleting");
+
+    expect(state.mock.transition).not.toHaveBeenCalled();
+    expect(state.mock.markFailed).not.toHaveBeenCalled();
+    expect(state.mock.releaseLease).toHaveBeenCalledWith(
+      "source",
+      "correlation",
+    );
+  });
+
   it("owns the lease lifecycle and releases it after failures", async () => {
     const state = persistence(source("embedding"));
     await state.mock.replacePassages("source", [

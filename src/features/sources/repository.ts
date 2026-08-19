@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/client";
 
 import { normalizeSourcePassages, type ReadableSource } from "./model";
 
+export type SourceRemovalResult = "removed" | "missing";
+
 export type SourceRepository = {
   list(notebookId: string): Promise<ReadableSource[]>;
   create(
@@ -15,6 +17,7 @@ export type SourceRepository = {
       | { notebookId: string; title: string; kind: "pdf"; file: File },
   ): Promise<void>;
   advance(sourceId: string): Promise<void>;
+  remove(sourceId: string): Promise<SourceRemovalResult>;
 };
 
 export function createSourceRepository(): SourceRepository {
@@ -67,6 +70,17 @@ export function createSourceRepository(): SourceRepository {
         } | null;
         throw new Error(payload?.error ?? "The Source could not be processed.");
       }
+    },
+    async remove(sourceId) {
+      const response = await fetch(`/api/sources/${sourceId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) return "removed";
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      if (response.status === 404) return "missing";
+      throw new Error(payload?.error ?? "Source removal did not finish.");
     },
   };
 }
