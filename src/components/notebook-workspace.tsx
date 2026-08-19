@@ -216,6 +216,16 @@ export function NotebookWorkspace({
     setSelectedCitation(undefined);
   }
 
+  function handleSourceOpenChange(open: boolean) {
+    if (!open) {
+      setSourceTitle("");
+      setSourceContent("");
+      setSourceFiles([]);
+      setSourceError(undefined);
+    }
+    setSourceOpen(open);
+  }
+
   async function handleAddSource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const availableSourceSlots = Math.max(
@@ -281,10 +291,7 @@ export function NotebookWorkspace({
           content: validation.content!,
         });
       }
-      setSourceOpen(false);
-      setSourceTitle("");
-      setSourceContent("");
-      setSourceFiles([]);
+      handleSourceOpenChange(false);
     } catch (error) {
       setSourceError(
         error instanceof Error
@@ -455,7 +462,7 @@ export function NotebookWorkspace({
 
       <AddSourceDialog
         open={sourceOpen}
-        onOpenChange={setSourceOpen}
+        onOpenChange={handleSourceOpenChange}
         title={sourceTitle}
         content={sourceContent}
         kind={sourceKind}
@@ -476,6 +483,7 @@ export function NotebookWorkspace({
           setSourceFiles(value);
           setSourceError(undefined);
         }}
+        onFileError={setSourceError}
         error={sourceError}
         pending={sourcePending}
         onSubmit={(event) => void handleAddSource(event)}

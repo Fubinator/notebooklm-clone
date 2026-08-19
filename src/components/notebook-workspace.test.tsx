@@ -418,6 +418,75 @@ describe("Notebook workspace", () => {
     });
   });
 
+  it("accepts dropped PDFs and discards them when the dialog is canceled", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
+
+    const droppedPdf = new File(["%PDF-dropped"], "dropped-report.pdf", {
+      type: "application/pdf",
+    });
+    const dialog = screen.getByRole("dialog", { name: "Add PDF Sources" });
+    fireEvent.drop(
+      within(dialog).getByRole("button", { name: /Drop PDFs here/ }),
+      { dataTransfer: { files: [droppedPdf] } },
+    );
+
+    expect(within(dialog).getByText("dropped report")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Add PDF Sources" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    const reopenedDialog = screen.getByRole("dialog", {
+      name: "Add PDF Sources",
+    });
+    expect(
+      within(reopenedDialog).queryByText("dropped report"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(reopenedDialog).queryByRole("button", {
+        name: "Remove dropped-report.pdf",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects non-PDF files dropped onto the upload area", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Add PDF Sources" });
+    fireEvent.drop(
+      within(dialog).getByRole("button", { name: /Drop PDFs here/ }),
+      {
+        dataTransfer: {
+          files: [new File(["notes"], "notes.txt", { type: "text/plain" })],
+        },
+      },
+    );
+
+    expect(
+      within(dialog).getByText("Only PDF files can be added."),
+    ).toBeInTheDocument();
+    expect(mocks.sourceCreate).not.toHaveBeenCalled();
+  });
+
   it("checks a PDF batch against the remaining Source slots before upload", async () => {
     render(
       <NotebookWorkspace

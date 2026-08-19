@@ -1,7 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
-import { FormEvent } from "react";
+import { CloudUpload, X } from "lucide-react";
+import { DragEvent, FormEvent, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import {
   sourceInputLimits as selectSourceInputLimits,
   type SourceInputLimits,
 } from "@/lib/limits";
+import { cn } from "@/lib/utils";
 
 export function AddSourceDialog({
   open,
@@ -36,6 +37,7 @@ export function AddSourceDialog({
   onContentChange,
   onKindChange,
   onFilesChange,
+  onFileError,
   error,
   pending,
   onSubmit,
@@ -52,6 +54,7 @@ export function AddSourceDialog({
   onContentChange: (value: string) => void;
   onKindChange: (value: "pasted_text" | "pdf") => void;
   onFilesChange: (value: File[]) => void;
+  onFileError: (message: string) => void;
   error?: string;
   pending: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -60,6 +63,8 @@ export function AddSourceDialog({
 }) {
   const errorId = "source-error";
   const sourceCount = files.length;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
   const submitLabel = pending
     ? sourceCount > 1
       ? `Adding ${sourceCount} Sources…`
@@ -68,8 +73,31 @@ export function AddSourceDialog({
       ? `Add ${sourceCount} Sources`
       : "Add Source";
 
+  function addPdfFiles(nextFiles: File[]) {
+    const pdfFiles = nextFiles.filter(
+      (file) =>
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf"),
+    );
+    if (pdfFiles.length) onFilesChange([...files, ...pdfFiles]);
+    if (pdfFiles.length !== nextFiles.length)
+      onFileError("Only PDF files can be added.");
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    addPdfFiles(Array.from(event.dataTransfer.files));
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) setDragActive(false);
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>
@@ -103,28 +131,69 @@ export function AddSourceDialog({
               >
                 PDF files
               </label>
-              <Input
-                id="source-file"
-                type="file"
-                accept="application/pdf,.pdf"
-                multiple
-                autoFocus
-                onChange={(event) => {
-                  onFilesChange([
-                    ...files,
-                    ...Array.from(event.target.files ?? []),
-                  ]);
-                  event.currentTarget.value = "";
+              <div
+                className={cn(
+                  "overflow-hidden rounded-2xl border-2 border-dashed transition-colors",
+                  dragActive
+                    ? "border-[var(--accent-strong)] bg-[var(--sage)]"
+                    : "border-[var(--line-strong)] bg-white/55 hover:border-[var(--accent-strong)] hover:bg-white/80",
+                )}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setDragActive(true);
                 }}
-                aria-invalid={Boolean(error)}
-                aria-describedby={`pdf-limits${error ? ` ${errorId}` : ""}`}
-              />
-              <p id="pdf-limits" className="mt-2 text-xs text-[var(--muted)]">
-                Select up to {availablePdfSlots} PDF
-                {availablePdfSlots === 1 ? "" : "s"} ·{" "}
-                {formatMegabytes(limits.pdfBytes)} MB and {limits.pdfPages}{" "}
-                pages maximum per file · password-protected and scanned PDFs are
-                not supported
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  id="source-file"
+                  className="sr-only"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  onChange={(event) => {
+                    addPdfFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = "";
+                  }}
+                  aria-label="PDF files"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={`pdf-limits${error ? ` ${errorId}` : ""}`}
+                />
+                <button
+                  type="button"
+                  autoFocus
+                  className="flex min-h-36 w-full flex-col items-center justify-center px-5 py-6 text-center focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none focus-visible:ring-inset disabled:opacity-50"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending}
+                >
+                  <span className="grid size-10 place-items-center rounded-full bg-white text-[var(--accent-strong)] shadow-sm">
+                    <CloudUpload className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold">
+                    Drop PDFs here
+                  </span>
+                  <span className="mt-1 text-xs text-[var(--muted)]">
+                    or click to browse your files
+                  </span>
+                  <span
+                    id="pdf-limits"
+                    className="mt-2 text-[11px] leading-4 text-[var(--muted)]"
+                  >
+                    Up to {availablePdfSlots} PDF
+                    {availablePdfSlots === 1 ? "" : "s"} ·{" "}
+                    {formatMegabytes(limits.pdfBytes)} MB / {limits.pdfPages}{" "}
+                    pages each
+                  </span>
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-[var(--muted)]">
+                Password-protected and scanned PDFs are not supported.
               </p>
               {files.length ? (
                 <div className="mt-3">
