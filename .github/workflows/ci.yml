@@ -89,5 +89,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # ubuntu-latest already provides Chromium's system libraries. Avoid
+      # --with-deps here because its apt refresh depends on runner mirrors.
+      - run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
