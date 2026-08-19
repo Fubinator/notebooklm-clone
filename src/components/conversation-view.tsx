@@ -50,10 +50,15 @@ export function ConversationView({
 }) {
   const [question, setQuestion] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const questionRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, pendingQuestion]);
+
+  useEffect(() => {
+    if (error && canAsk && !pendingQuestion) questionRef.current?.focus();
+  }, [canAsk, error, pendingQuestion]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,6 +131,7 @@ export function ConversationView({
           <div className="flex items-center gap-2">
             <Search className="ml-2 size-4 shrink-0 text-[var(--muted-light)]" />
             <input
+              ref={questionRef}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               disabled={!canAsk || Boolean(pendingQuestion)}

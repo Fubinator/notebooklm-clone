@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   sourceList: vi.fn(),
   sourceCreate: vi.fn(),
   sourceAdvance: vi.fn(),
+  sourceRemove: vi.fn(),
   conversationList: vi.fn(),
   askQuestion: vi.fn(),
   noteList: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("@/features/sources/repository", () => ({
     list: mocks.sourceList,
     create: mocks.sourceCreate,
     advance: mocks.sourceAdvance,
+    remove: mocks.sourceRemove,
   }),
 }));
 
@@ -121,6 +123,27 @@ const exampleSource: ReadableSource = {
   ],
 };
 
+const privateSource: ReadableSource = {
+  ...exampleSource,
+  id: "10000000-0000-4000-8000-000000000031",
+  notebook_id: first.id,
+  title: "Private interview notes",
+  kind: "pasted_text",
+  original_url: null,
+  attribution: "Added by this Guest",
+  license_name: "Private Source",
+  license_url: "",
+  storage_path: null,
+  passages: exampleSource.passages.map((passage) => ({
+    ...passage,
+    id: "10000000-0000-4000-8100-000000000001",
+    source_id: "10000000-0000-4000-8000-000000000031",
+    page_number: null,
+    paragraph_start: 1,
+    paragraph_end: 1,
+  })),
+};
+
 const groundedMessages: ConversationMessage[] = [
   {
     id: "30000000-0000-4000-8000-000000000001",
@@ -188,6 +211,7 @@ describe("Notebook workspace", () => {
     mocks.sourceList.mockResolvedValue([]);
     mocks.sourceCreate.mockResolvedValue(undefined);
     mocks.sourceAdvance.mockResolvedValue(undefined);
+    mocks.sourceRemove.mockResolvedValue("removed");
     mocks.conversationList.mockResolvedValue([]);
     mocks.askQuestion.mockResolvedValue(undefined);
     mocks.noteList.mockResolvedValue([]);
@@ -244,6 +268,7 @@ describe("Notebook workspace", () => {
   });
 
   it("makes Example Notebook actions visibly read-only", async () => {
+    mocks.sourceList.mockResolvedValue([exampleSource]);
     render(
       <NotebookWorkspace
         guestId={first.owner_id!}
@@ -265,7 +290,151 @@ describe("Notebook workspace", () => {
     expect(
       screen.queryByText("Delete active Notebook"),
     ).not.toBeInTheDocument();
-    await screen.findByText("No Sources yet");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      await screen.findByRole("button", {
+        name: `Preview ${exampleSource.title}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: `Source actions for ${exampleSource.title}`,
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Preview ${exampleSource.title}`,
+      }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Remove source" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("removes a private Source from its card after an irreversible confirmation", async () => {
+    let finishRemoval: (result: "removed") => void = () => undefined;
+    mocks.sourceList.mockResolvedValueOnce([privateSource]);
+    mocks.sourceRemove.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRemoval = resolve;
+        }),
+    );
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    await openSourceMenu(privateSource);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove source" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      `“${privateSource.title}”`,
+    );
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Past Answers and Notes will remain",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove source" }));
+
+    expect(screen.getByRole("button", { name: "Removing…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Keep Source" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(
+      document.querySelector(`[data-source-preview="${privateSource.id}"]`),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    finishRemoval("removed");
+    await waitFor(() =>
+      expect(mocks.sourceRemove).toHaveBeenCalledWith(privateSource.id),
+    );
+    expect(await screen.findByText("No Sources yet")).toBeInTheDocument();
+    expect(screen.getAllByText("Source removed").length).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Sources" })).toHaveFocus(),
+    );
+    expect(
+      screen.getByPlaceholderText(
+        "Add a ready Source before asking a Question",
+      ),
+    ).toBeDisabled();
+  });
+
+  it("offers Source removal from the readable preview", async () => {
+    mocks.sourceList.mockResolvedValue([privateSource]);
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `Preview ${privateSource.title}`,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove source" }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(privateSource.title);
+  });
+
+  it("keeps an interrupted removal visible and lets the Guest retry", async () => {
+    const deletingSource: ReadableSource = {
+      ...privateSource,
+      processing_stage: "deleting",
+    };
+    mocks.sourceList
+      .mockResolvedValueOnce([privateSource])
+      .mockResolvedValueOnce([deletingSource])
+      .mockResolvedValueOnce([]);
+    mocks.sourceRemove
+      .mockRejectedValueOnce(
+        new Error("Source removal did not finish. Try again."),
+      )
+      .mockResolvedValueOnce("removed");
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    await openSourceMenu(privateSource);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove source" }));
+
+    expect(
+      await screen.findByText("Source removal did not finish. Try again."),
+    ).toHaveAttribute("role", "alert");
+    expect(screen.getByText(/Removal incomplete/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Retry removal" }).at(-1)!,
+    );
+
+    expect(await screen.findByText("No Sources yet")).toBeInTheDocument();
+    expect(mocks.sourceRemove).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically resumes a persisted deleting Source", async () => {
+    mocks.sourceList
+      .mockResolvedValueOnce([
+        { ...privateSource, processing_stage: "deleting" },
+      ])
+      .mockResolvedValueOnce([]);
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.sourceRemove).toHaveBeenCalledWith(privateSource.id),
+    );
+    expect(await screen.findByText("No Sources yet")).toBeInTheDocument();
   });
 
   it("adds validated pasted text to a private Notebook", async () => {
@@ -437,6 +606,37 @@ describe("Notebook workspace", () => {
         question: "What are the four AI RMF functions?",
       }),
     );
+  });
+
+  it("keeps and focuses a Question interrupted by Source removal", async () => {
+    mocks.sourceList.mockResolvedValue([privateSource]);
+    mocks.askQuestion.mockRejectedValue(
+      new Error(
+        "A Source was removed while this Answer was being prepared. Ask the Question again.",
+      ),
+    );
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+
+    const input = await screen.findByPlaceholderText(
+      "Ask only what your Sources can support",
+    );
+    fireEvent.change(input, {
+      target: { value: "What evidence was removed?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit Question" }));
+
+    expect(
+      await screen.findByText(
+        "A Source was removed while this Answer was being prepared. Ask the Question again.",
+      ),
+    ).toHaveAttribute("role", "alert");
+    expect(input).toHaveValue("What evidence was removed?");
+    expect(input).toHaveFocus();
   });
 
   it("saves a completed Answer as a linked Note and keeps Conversation state", async () => {
@@ -693,6 +893,18 @@ describe("Notebook workspace", () => {
 function openNotebookMenu() {
   fireEvent.pointerDown(
     screen.getByRole("button", { name: "Choose a Notebook" }),
+    {
+      button: 0,
+      ctrlKey: false,
+    },
+  );
+}
+
+async function openSourceMenu(source: ReadableSource) {
+  fireEvent.pointerDown(
+    await screen.findByRole("button", {
+      name: `Source actions for ${source.title}`,
+    }),
     {
       button: 0,
       ctrlKey: false,

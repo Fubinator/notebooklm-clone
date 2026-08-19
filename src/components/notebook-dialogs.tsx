@@ -104,8 +104,8 @@ export function DeleteNotebookDialog({
         <DialogHeader>
           <DialogTitle>Delete this Notebook?</DialogTitle>
           <DialogDescription>
-            “{notebook?.title}” will be permanently removed. This cannot be
-            undone.
+            “{notebook?.title}”, its Sources, and uploaded files will be
+            permanently removed. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         {error ? (

@@ -7,7 +7,13 @@ export type Json =
   | Json[];
 
 export type ProcessingStage =
-  "uploaded" | "extracting" | "chunking" | "embedding" | "ready" | "failed";
+  | "uploaded"
+  | "extracting"
+  | "chunking"
+  | "embedding"
+  | "ready"
+  | "failed"
+  | "deleting";
 
 export type Database = {
   public: {
@@ -454,6 +460,26 @@ export type Database = {
           source_embedding_pooling: string;
         };
         Returns: Database["public"]["Tables"]["sources"]["Row"][];
+      };
+      begin_private_source_deletion: {
+        Args: { target_guest_id: string; target_source_id: string };
+        Returns: {
+          source_id: string;
+          notebook_id: string;
+          storage_path: string | null;
+        }[];
+      };
+      complete_private_source_deletion: {
+        Args: { target_guest_id: string; target_source_id: string };
+        Returns: boolean;
+      };
+      delete_private_notebook: {
+        Args: {
+          target_guest_id: string;
+          target_notebook_id: string;
+          expected_source_ids: string[];
+        };
+        Returns: boolean;
       };
       fail_answer: {
         Args: { target_answer_id: string };

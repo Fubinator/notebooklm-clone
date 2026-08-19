@@ -24,6 +24,10 @@ export function ConversationPane({
   error,
   canAsk,
   onCloseSource,
+  removingSourceId,
+  removalFailedIds,
+  onRemoveSource,
+  onRetrySourceRemoval,
   onCreate,
   onAsk,
   onRetry,
@@ -42,6 +46,10 @@ export function ConversationPane({
   error?: string;
   canAsk: boolean;
   onCloseSource: () => void;
+  removingSourceId?: string;
+  removalFailedIds: Set<string>;
+  onRemoveSource: (source: ReadableSource) => void;
+  onRetrySourceRemoval: (sourceId: string) => void;
   onCreate: () => void;
   onAsk: (question: string) => Promise<boolean>;
   onRetry: () => void;
@@ -70,7 +78,15 @@ export function ConversationPane({
         </span>
       </div>
       {source ? (
-        <SourcePreview source={source} onClose={onCloseSource} />
+        <SourcePreview
+          source={source}
+          onClose={onCloseSource}
+          canRemove={!notebook?.is_example}
+          removing={removingSourceId === source.id}
+          removalFailed={removalFailedIds.has(source.id)}
+          onRemove={() => onRemoveSource(source)}
+          onRetryRemoval={() => onRetrySourceRemoval(source.id)}
+        />
       ) : notebook ? (
         <ConversationView
           key={notebook.id}

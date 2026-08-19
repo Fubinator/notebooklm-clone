@@ -32,7 +32,9 @@ const SAFE_ERROR_CATEGORIES = new Set([
   "ingestion_limit_reached",
   "ingestion_lease_not_owned",
   "ingestion_lease_lost",
+  "notebook_deletion_incomplete",
   "notebook_not_authorized",
+  "notebook_sources_changed",
   "pdf_content_empty",
   "pdf_encrypted",
   "pdf_page_limit",
@@ -41,7 +43,10 @@ const SAFE_ERROR_CATEGORIES = new Set([
   "pdf_unreadable",
   "processing_failed",
   "question_limit_reached",
+  "source_changed_during_answer",
   "source_content_empty",
+  "source_deleting",
+  "source_deletion_incomplete",
   "source_not_authorized",
 ]);
 

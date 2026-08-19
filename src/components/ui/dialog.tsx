@@ -13,8 +13,13 @@ export const DialogClose = DialogPrimitive.Close;
 export function DialogContent({
   className,
   children,
+  closeDisabled = false,
+  onEscapeKeyDown,
+  onPointerDownOutside,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  closeDisabled?: boolean;
+}) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="data-[state=closed]:animate-out data-[state=open]:animate-in fixed inset-0 z-50 bg-[#18251f]/35 backdrop-blur-[2px]" />
@@ -23,10 +28,21 @@ export function DialogContent({
           "fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-[22px] border border-white/60 bg-[var(--paper)] p-6 shadow-[0_24px_80px_rgba(24,38,31,.22)] outline-none",
           className,
         )}
+        onEscapeKeyDown={(event) => {
+          onEscapeKeyDown?.(event);
+          if (closeDisabled) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          onPointerDownOutside?.(event);
+          if (closeDisabled) event.preventDefault();
+        }}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute top-4 right-4 grid size-8 place-items-center rounded-full text-[var(--muted)] hover:bg-black/5 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none">
+        <DialogPrimitive.Close
+          disabled={closeDisabled}
+          className="absolute top-4 right-4 grid size-8 place-items-center rounded-full text-[var(--muted)] hover:bg-black/5 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+        >
           <X className="size-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

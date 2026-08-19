@@ -5,11 +5,19 @@ import {
   FilePlus2,
   FileText,
   LoaderCircle,
+  MoreHorizontal,
   RefreshCw,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
 import type { SourceLoadState } from "@/features/sources/use-source-library";
@@ -27,6 +35,10 @@ export function SourcesPane({
   onClose,
   onAdd,
   onProcess,
+  onRemove,
+  onRetryRemoval,
+  removingSourceId,
+  removalFailedIds,
   sourceLimit = DEFAULT_APPLICATION_LIMITS.sourcesPerNotebook,
   ingestionLimit = DEFAULT_APPLICATION_LIMITS.concurrentIngestionsPerGuest,
 }: {
@@ -40,6 +52,10 @@ export function SourcesPane({
   onClose: () => void;
   onAdd: () => void;
   onProcess: (sourceId: string) => void;
+  onRemove: (source: ReadableSource) => void;
+  onRetryRemoval: (sourceId: string) => void;
+  removingSourceId?: string;
+  removalFailedIds: Set<string>;
   sourceLimit?: number;
   ingestionLimit?: number;
 }) {
@@ -64,7 +80,13 @@ export function SourcesPane({
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-[var(--line)] px-5">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-[var(--muted)]" />
-          <h2 className="text-sm font-semibold">Sources</h2>
+          <h2
+            id="sources-heading"
+            tabIndex={-1}
+            className="text-sm font-semibold outline-none"
+          >
+            Sources
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)]">
@@ -110,6 +132,10 @@ export function SourcesPane({
             onSelect={onSelect}
             onRetry={onRetry}
             onProcess={onProcess}
+            onRemove={onRemove}
+            onRetryRemoval={onRetryRemoval}
+            removingSourceId={removingSourceId}
+            removalFailedIds={removalFailedIds}
           />
         </div>
         {notebook ? (
@@ -132,6 +158,10 @@ function SourceListState({
   onSelect,
   onRetry,
   onProcess,
+  onRemove,
+  onRetryRemoval,
+  removingSourceId,
+  removalFailedIds,
 }: {
   notebook?: Notebook;
   sources: ReadableSource[];
@@ -140,6 +170,10 @@ function SourceListState({
   onSelect: (sourceId: string) => void;
   onRetry: () => void;
   onProcess: (sourceId: string) => void;
+  onRemove: (source: ReadableSource) => void;
+  onRetryRemoval: (sourceId: string) => void;
+  removingSourceId?: string;
+  removalFailedIds: Set<string>;
 }) {
   if (!notebook) {
     return (
@@ -202,56 +236,108 @@ function SourceListState({
 
   return (
     <div className="space-y-2">
-      {sources.map((source) => (
-        <div
-          key={source.id}
-          className={cn(
-            "rounded-xl border bg-white p-3",
-            selectedSourceId === source.id
-              ? "border-[var(--accent-strong)]"
-              : "border-[var(--line)]",
-          )}
-        >
-          <button
-            className="w-full rounded-lg text-left focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none"
-            onClick={() => onSelect(source.id)}
-            aria-label={`Preview ${source.title}`}
+      {sources.map((source) => {
+        const removing = removingSourceId === source.id;
+        const removalFailed = removalFailedIds.has(source.id);
+        const deletionStarted = source.processing_stage === "deleting";
+        const locked = removing || deletionStarted;
+
+        return (
+          <div
+            key={source.id}
+            className={cn(
+              "rounded-xl border bg-white p-3",
+              selectedSourceId === source.id
+                ? "border-[var(--accent-strong)]"
+                : "border-[var(--line)]",
+            )}
+            aria-busy={removing || undefined}
           >
-            <span className="flex items-start gap-2.5">
-              {source.processing_stage === "failed" ? (
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--danger)]" />
-              ) : (
-                <FileText className="mt-0.5 size-4 shrink-0 text-[var(--accent-strong)]" />
-              )}
-              <span className="min-w-0">
-                <span className="block text-xs leading-5 font-semibold">
-                  {source.title}
-                </span>
-                <span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
-                  {stageLabel(source.processing_stage)} ·{" "}
-                  {source.passages.length} Passages ·{" "}
-                  {source.kind === "pasted_text" ? "Pasted text" : "PDF"}
-                </span>
-                {source.processing_stage === "failed" ? (
-                  <span className="mt-1 block text-[10px] leading-4 text-[var(--danger)]">
-                    {failureLabel(source.failure_category)}
+            <div className="flex items-start gap-1">
+              <button
+                className="min-w-0 flex-1 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-[var(--ink)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={() => onSelect(source.id)}
+                aria-label={`Preview ${source.title}`}
+                data-source-preview={source.id}
+                disabled={locked}
+              >
+                <span className="flex items-start gap-2.5">
+                  {removing ? (
+                    <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin text-[var(--accent-strong)]" />
+                  ) : source.processing_stage === "failed" || removalFailed ? (
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--danger)]" />
+                  ) : (
+                    <FileText className="mt-0.5 size-4 shrink-0 text-[var(--accent-strong)]" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block text-xs leading-5 font-semibold">
+                      {source.title}
+                    </span>
+                    <span className="mt-1 block text-[10px] leading-4 text-[var(--muted)]">
+                      {sourceStageLabel(source, removing, removalFailed)} ·{" "}
+                      {source.passages.length} Passages ·{" "}
+                      {source.kind === "pasted_text" ? "Pasted text" : "PDF"}
+                    </span>
+                    {source.processing_stage === "failed" ? (
+                      <span className="mt-1 block text-[10px] leading-4 text-[var(--danger)]">
+                        {failureLabel(source.failure_category)}
+                      </span>
+                    ) : removalFailed ? (
+                      <span className="mt-1 block text-[10px] leading-4 text-[var(--danger)]">
+                        Cleanup did not finish. Retry removal.
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-              </span>
-            </span>
-          </button>
-          {source.processing_stage === "failed" ? (
-            <Button
-              className="mt-2 w-full"
-              size="sm"
-              variant="secondary"
-              onClick={() => onProcess(source.id)}
-            >
-              <RefreshCw className="size-3.5" /> Retry processing
-            </Button>
-          ) : null}
-        </div>
-      ))}
+                </span>
+              </button>
+              {!notebook.is_example && !deletionStarted ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0"
+                      disabled={Boolean(removingSourceId)}
+                      aria-label={`Source actions for ${source.title}`}
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-[var(--danger)] data-[highlighted]:text-[var(--danger)]"
+                      onSelect={() => onRemove(source)}
+                    >
+                      <Trash2 className="size-4" /> Remove source
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+            {removalFailed ? (
+              <Button
+                className="mt-2 w-full"
+                size="sm"
+                variant="secondary"
+                disabled={Boolean(removingSourceId)}
+                onClick={() => onRetryRemoval(source.id)}
+              >
+                <RefreshCw className="size-3.5" /> Retry removal
+              </Button>
+            ) : source.processing_stage === "failed" ? (
+              <Button
+                className="mt-2 w-full"
+                size="sm"
+                variant="secondary"
+                disabled={Boolean(removingSourceId)}
+                onClick={() => onProcess(source.id)}
+              >
+                <RefreshCw className="size-3.5" /> Retry processing
+              </Button>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -276,7 +362,13 @@ function failureLabel(category: string | null) {
   );
 }
 
-function stageLabel(stage: ReadableSource["processing_stage"]) {
+function sourceStageLabel(
+  source: ReadableSource,
+  removing: boolean,
+  removalFailed: boolean,
+) {
+  if (removing) return "Removing…";
+  if (removalFailed) return "Removal incomplete";
   return (
     {
       uploaded: "Uploaded",
@@ -285,8 +377,9 @@ function stageLabel(stage: ReadableSource["processing_stage"]) {
       embedding: "Embedding",
       ready: "Ready",
       failed: "Processing failed",
+      deleting: "Removal pending",
     } as const
-  )[stage];
+  )[source.processing_stage];
 }
 
 function SourceEmpty({ title, message }: { title: string; message: string }) {

@@ -142,6 +142,9 @@ async function advanceSourceStage(
   },
 ) {
   let source = await dependencies.persistence.load(sourceId);
+  if (source.processingStage === "deleting") {
+    throw new Error("source_deleting");
+  }
   if (source.processingStage === "ready") return source;
 
   if (source.processingStage === "failed") {

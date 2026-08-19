@@ -96,7 +96,12 @@ export async function POST(request: Request) {
     return Response.json({ result }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const category = safeErrorCategory(error);
+    const sourceChanged =
+      message.includes("invalid_evidence") ||
+      message.includes("citation_unavailable");
+    const category = sourceChanged
+      ? "source_changed_during_answer"
+      : safeErrorCategory(error);
     writeStructuredLog("error", {
       operation: "grounded_answering",
       correlationId,
@@ -141,6 +146,18 @@ export async function POST(request: Request) {
       return Response.json(
         { error: "That Notebook is not available." },
         { status: 404 },
+      );
+    }
+
+    if (sourceChanged) {
+      return Response.json(
+        {
+          error:
+            "A Source was removed while this Answer was being prepared. Ask the Question again.",
+          category,
+          correlationId,
+        },
+        { status: 409 },
       );
     }
 
