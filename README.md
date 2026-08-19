@@ -9,7 +9,7 @@ The application creates or restores a Supabase-authenticated Guest without an ap
 - Automatic Supabase anonymous sign-in with cookie-backed session restoration
 - Dynamically rendered identity-bearing pages to prevent Guest metadata caching
 - Private Notebook create, list, open, rename, and delete behavior
-- Private PDF and pasted-text Source ingestion with persisted, retryable stages
+- Private multi-PDF and pasted-text Source ingestion with persisted, retryable stages
 - Immediate shared Example Notebook with two attributed NIST Sources
 - Readable Source previews with ordered PDF-page Passages
 - Reproducible 384-dimension Cloudflare Workers AI embeddings stored with pgvector

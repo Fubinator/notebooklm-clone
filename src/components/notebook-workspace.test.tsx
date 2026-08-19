@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConversationMessage } from "@/features/conversations/model";
 import type { Notebook } from "@/features/notebooks/model";
 import type { ReadableSource } from "@/features/sources/model";
+import { DEFAULT_APPLICATION_LIMITS } from "@/lib/limits";
 
 import { NotebookWorkspace } from "./notebook-workspace";
 
@@ -298,7 +299,7 @@ describe("Notebook workspace", () => {
     );
   });
 
-  it("switches to PDF upload without changing a controlled input to uncontrolled", async () => {
+  it("switches to multi-PDF upload without changing a controlled input to uncontrolled", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -310,10 +311,10 @@ describe("Notebook workspace", () => {
     );
     await screen.findByText("No Sources yet");
     fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
-    fireEvent.click(screen.getByRole("button", { name: "Upload PDF" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
 
-    expect(screen.getByLabelText("Source title")).toBeInTheDocument();
-    expect(screen.getByLabelText("PDF file")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Source title")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("PDF files")).toHaveAttribute("multiple");
     expect(screen.queryByLabelText("Pasted text")).not.toBeInTheDocument();
     expect(consoleError).not.toHaveBeenCalledWith(
       expect.stringContaining(
@@ -321,6 +322,83 @@ describe("Notebook workspace", () => {
       ),
     );
     consoleError.mockRestore();
+  });
+
+  it("uploads multiple PDFs and generates a Source title for each filename", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
+
+    const governance = new File(["%PDF-1.7 governance"], "AI_Governance.pdf", {
+      type: "application/pdf",
+    });
+    const riskRegister = new File(
+      ["%PDF-1.7 risks"],
+      "risk-register-2026.PDF",
+      { type: "application/pdf" },
+    );
+    fireEvent.change(screen.getByLabelText("PDF files"), {
+      target: { files: [governance, riskRegister] },
+    });
+
+    expect(screen.getByText("AI Governance")).toBeInTheDocument();
+    expect(screen.getByText("risk register 2026")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add 2 Sources" }));
+
+    await waitFor(() => expect(mocks.sourceCreate).toHaveBeenCalledTimes(2));
+    expect(mocks.sourceCreate).toHaveBeenNthCalledWith(1, {
+      notebookId: first.id,
+      title: "AI Governance",
+      kind: "pdf",
+      file: governance,
+    });
+    expect(mocks.sourceCreate).toHaveBeenNthCalledWith(2, {
+      notebookId: first.id,
+      title: "risk register 2026",
+      kind: "pdf",
+      file: riskRegister,
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Add PDF Sources" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("checks a PDF batch against the remaining Source slots before upload", async () => {
+    render(
+      <NotebookWorkspace
+        guestId={first.owner_id!}
+        initialNotebooks={[first]}
+        limits={{
+          ...DEFAULT_APPLICATION_LIMITS,
+          sourcesPerNotebook: 1,
+        }}
+      />,
+    );
+    await screen.findByText("No Sources yet");
+    fireEvent.click(screen.getByRole("button", { name: "Add Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload PDFs" }));
+    fireEvent.change(screen.getByLabelText("PDF files"), {
+      target: {
+        files: [
+          new File(["%PDF-one"], "one.pdf", { type: "application/pdf" }),
+          new File(["%PDF-two"], "two.pdf", { type: "application/pdf" }),
+        ],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add 2 Sources" }));
+
+    expect(
+      await screen.findByText("This Notebook has room for 1 more Source."),
+    ).toBeInTheDocument();
+    expect(mocks.sourceCreate).not.toHaveBeenCalled();
   });
 
   it("keeps Source rows visible while processing refreshes in the background", async () => {

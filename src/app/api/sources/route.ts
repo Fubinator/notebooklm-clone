@@ -1,5 +1,10 @@
 import { CLOUDFLARE_EMBEDDING } from "@/features/sources/cloudflare-embedding";
 import { readPdf, validatePastedText } from "@/features/sources/source-reader";
+import {
+  normalizeSourceTitle,
+  SOURCE_TITLE_CHARACTER_LIMIT,
+  sourceTitleFromPdfFilename,
+} from "@/features/sources/source-title";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation";
@@ -36,18 +41,22 @@ export async function POST(request: Request) {
       { status: 400 },
     );
 
+  const requestedTitle =
+    typeof input.title === "string" ? normalizeSourceTitle(input.title) : "";
   const title =
-    typeof input.title === "string"
-      ? input.title.trim().replace(/\s+/g, " ")
-      : "";
+    input.kind === "pdf" && !requestedTitle
+      ? sourceTitleFromPdfFilename(input.file?.name ?? "")
+      : requestedTitle;
   if (!isUuid(input.notebookId))
     return Response.json(
       { error: "Choose a valid Notebook." },
       { status: 400 },
     );
-  if (!title || title.length > 120)
+  if (!title || title.length > SOURCE_TITLE_CHARACTER_LIMIT)
     return Response.json(
-      { error: "Source title must be between 1 and 120 characters." },
+      {
+        error: `Source title must be between 1 and ${SOURCE_TITLE_CHARACTER_LIMIT} characters.`,
+      },
       { status: 400 },
     );
 
